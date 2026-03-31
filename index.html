@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="SGB II Prüfassistent — Unterstützung bei der Anspruchsprüfung nach § 7 SGB II im Jobcenter. Prototyp." />
+  <title>SGB II Prüfassistent</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- ====================================================
+       SEITENKOPF
+       ==================================================== -->
+  <header role="banner">
+    <div class="header-icon" aria-hidden="true">⚖️</div>
+    <div class="header-text">
+      <h1>SGB II Prüfassistent</h1>
+      <p>Unterstützung bei der Anspruchsprüfung nach § 7 SGB II &nbsp;|&nbsp; Prototyp</p>
+    </div>
+  </header>
+
+  <!-- ====================================================
+       HAUPTINHALT
+       ==================================================== -->
+  <main class="container" role="main">
+
+    <!-- ① FALLTYP-AUSWAHL -------------------------------- -->
+    <section class="falltyp-auswahl" aria-labelledby="falltyp-titel">
+      <h2 id="falltyp-titel">Falltyp auswählen</h2>
+
+      <div class="falltyp-grid" role="group" aria-label="Falltyp wählen">
+
+        <button class="falltyp-btn" data-typ="allgemein" type="button"
+                aria-pressed="false">
+          <span class="falltyp-icon" aria-hidden="true">📋</span>
+          Allgemein
+        </button>
+
+        <button class="falltyp-btn" data-typ="eu_buerger" type="button"
+                aria-pressed="false">
+          <span class="falltyp-icon" aria-hidden="true">🇪🇺</span>
+          EU-Bürger
+        </button>
+
+        <button class="falltyp-btn" data-typ="studierender" type="button"
+                aria-pressed="false">
+          <span class="falltyp-icon" aria-hidden="true">🎓</span>
+          Studierender
+        </button>
+
+        <button class="falltyp-btn" data-typ="gemischt" type="button"
+                aria-pressed="false">
+          <span class="falltyp-icon" aria-hidden="true">👨‍👩‍👧</span>
+          Gemischte BG
+        </button>
+
+      </div>
+    </section>
+
+    <!-- ② EINGABEBEREICH --------------------------------- -->
+    <section id="eingabe-bereich" class="eingabe-bereich versteckt"
+             aria-labelledby="eingabe-titel">
+      <h2 id="eingabe-titel" class="sr-only">Fallangaben</h2>
+
+      <!-- SEKTION A: Allgemeine Falldaten -->
+      <div class="sektion" data-sektion="s-allgemein">
+        <h3 class="sektion-titel">
+          Allgemeine Falldaten
+          <span class="sektion-badge">§ 7 Abs. 1 SGB II</span>
+        </h3>
+
+        <div class="felder-grid">
+
+          <div class="feld">
+            <label for="alter">
+              Alter der Person <span class="pflicht" aria-label="Pflichtfeld">*</span>
+            </label>
+            <input type="number" id="alter" name="alter"
+                   min="0" max="120" placeholder="z. B. 32"
+                   aria-describedby="alter-hinweis" />
+            <span class="feld-hinweis" id="alter-hinweis">In Jahren (ganze Zahl)</span>
+          </div>
+
+          <div class="feld">
+            <label for="familienstand">
+              Familienstand <span class="pflicht" aria-label="Pflichtfeld">*</span>
+            </label>
+            <select id="familienstand" name="familienstand">
+              <option value="">— bitte wählen —</option>
+              <option value="single">Alleinstehend</option>
+              <option value="verheiratet">Verheiratet</option>
+              <option value="lebenspartnerschaft">Eingetragene Lebenspartnerschaft</option>
+              <option value="alleinerziehend">Alleinerziehend</option>
+            </select>
+          </div>
+
+          <div class="feld">
+            <label for="anzahlKinder">
+              Minderjährige Kinder im Haushalt
+            </label>
+            <input type="number" id="anzahlKinder" name="anzahlKinder"
+                   min="0" max="20" placeholder="0"
+                   aria-describedby="kinder-hinweis" />
+            <span class="feld-hinweis" id="kinder-hinweis">Anzahl unter 18 Jahren</span>
+          </div>
+
+          <div class="feld">
+            <label for="erwerbsfaehigkeit">
+              Erwerbsfähigkeit <span class="pflicht" aria-label="Pflichtfeld">*</span>
+            </label>
+            <select id="erwerbsfaehigkeit" name="erwerbsfaehigkeit">
+              <option value="">— bitte wählen —</option>
+              <option value="ja">Ja (mind. 3 Std./Tag)</option>
+              <option value="eingeschraenkt">Eingeschränkt</option>
+              <option value="nein">Nein (nicht erwerbsfähig)</option>
+            </select>
+          </div>
+
+        </div>
+      </div><!-- /s-allgemein -->
+
+      <hr class="trenner" />
+
+      <!-- SEKTION B: EU-Bürger-Prüfung -->
+      <div class="sektion versteckt" data-sektion="s-eu">
+        <h3 class="sektion-titel">
+          EU-Bürger-Prüfung
+          <span class="sektion-badge">§ 7 Abs. 1 S. 2 SGB II / FreizügG</span>
+        </h3>
+
+        <div class="felder-grid">
+
+          <div class="feld">
+            <label for="staatsangehoerigkeit">
+              Staatsangehörigkeit <span class="pflicht" aria-label="Pflichtfeld">*</span>
+            </label>
+            <select id="staatsangehoerigkeit" name="staatsangehoerigkeit">
+              <option value="">— bitte wählen —</option>
+              <option value="deutschland">Deutschland</option>
+              <option value="eu">EU-Staat</option>
+              <option value="drittstaat">Drittstaat</option>
+            </select>
+          </div>
+
+          <div class="feld" id="eu-details">
+
+          </div>
+
+        </div>
+
+        <!-- EU-Detailfelder (nur wenn nicht Deutschland) -->
+        <div id="eu-details" class="felder-grid" style="margin-top: var(--abstand-m);">
+
+          <div class="feld">
+            <label for="aufenthaltsdauerMonate">
+              Aufenthaltsdauer in Deutschland
+            </label>
+            <input type="number" id="aufenthaltsdauerMonate" name="aufenthaltsdauerMonate"
+                   min="0" placeholder="z. B. 8"
+                   aria-describedby="aufenthalt-hinweis" />
+            <span class="feld-hinweis" id="aufenthalt-hinweis">In Monaten</span>
+          </div>
+
+          <div class="feld">
+            <label for="aufenthalts-status">
+              Aufenthaltsstatus / Freizügigkeitsgrund
+            </label>
+            <select id="aufenthalts-status" name="aufenthaltsStatus">
+              <option value="">— bitte wählen —</option>
+              <option value="arbeitnehmer">Arbeitnehmer</option>
+              <option value="selbststaendig">Selbstständig</option>
+              <option value="arbeitsuchend">Arbeitsuchend</option>
+              <option value="familienangehoerig">Familienangehöriger eines EU-Bürgers</option>
+              <option value="sonstiges">Sonstiges</option>
+            </select>
+          </div>
+
+        </div>
+
+        <!-- Erwerbstätigkeitsdetails (nur bei Arbeitnehmer/Selbstständig) -->
+        <div id="erwerbs-felder" class="versteckt" style="margin-top: var(--abstand-m);">
+          <div class="felder-grid">
+
+            <div class="feld">
+              <label for="wochenstunden">
+                Wöchentliche Arbeitszeit
+              </label>
+              <input type="number" id="wochenstunden" name="wochenstunden"
+                     min="0" max="60" step="0.5" placeholder="z. B. 20"
+                     aria-describedby="stunden-hinweis" />
+              <span class="feld-hinweis" id="stunden-hinweis">Stunden pro Woche</span>
+            </div>
+
+            <div class="feld">
+              <label for="bruttoEinkommen">
+                Monatliches Bruttoeinkommen
+              </label>
+              <input type="number" id="bruttoEinkommen" name="bruttoEinkommen"
+                     min="0" step="1" placeholder="z. B. 1200"
+                     aria-describedby="brutto-hinweis" />
+              <span class="feld-hinweis" id="brutto-hinweis">In Euro (€)</span>
+            </div>
+
+            <div class="feld">
+              <label style="font-size:0.85rem;font-weight:600;color:var(--grau-700);">
+                Befristung
+              </label>
+              <div class="checkbox-gruppe">
+                <label class="checkbox-item">
+                  <input type="checkbox" id="istUnbefristet" name="istUnbefristet" />
+                  <span>Tätigkeit ist unbefristet</span>
+                </label>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Nachweise EU -->
+        <div style="margin-top: var(--abstand-m);">
+          <label style="font-size:0.85rem;font-weight:600;color:var(--grau-700);display:block;margin-bottom:var(--abstand-s);">
+            Vorhandene Nachweise
+          </label>
+          <div class="checkbox-gruppe">
+            <label class="checkbox-item">
+              <input type="checkbox" id="nachweis-arbeitsvertrag" name="nachweis_arbeitsvertrag" />
+              <span>Arbeitsvertrag liegt vor</span>
+            </label>
+            <label class="checkbox-item">
+              <input type="checkbox" id="nachweis-kontoauszuege" name="nachweis_kontoauszuege" />
+              <span>Kontoauszüge der letzten 3 Monate</span>
+            </label>
+            <label class="checkbox-item">
+              <input type="checkbox" id="nachweis-meldung" name="nachweis_meldung" />
+              <span>Meldebestätigung</span>
+            </label>
+          </div>
+        </div>
+
+      </div><!-- /s-eu -->
+
+      <hr class="trenner" />
+
+      <!-- SEKTION C: BAföG / Ausbildungs-Prüfung -->
+      <div class="sektion versteckt" data-sektion="s-bafoeg">
+        <h3 class="sektion-titel">
+          BAföG / Ausbildungs-Prüfung
+          <span class="sektion-badge">§ 7 Abs. 5 SGB II</span>
+        </h3>
+
+        <div class="felder-grid">
+
+          <div class="feld feld-breit">
+            <label>
+              Befindet sich die Person in einer Ausbildung oder einem Studium?
+              <span class="pflicht" aria-label="Pflichtfeld">*</span>
+            </label>
+            <div class="radio-gruppe" role="radiogroup" aria-label="Ausbildung / Studium">
+              <label class="radio-item">
+                <input type="radio" name="inAusbildung" value="ja" />
+                <span>Ja</span>
+              </label>
+              <label class="radio-item">
+                <input type="radio" name="inAusbildung" value="nein" />
+                <span>Nein</span>
+              </label>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Details (nur wenn Ausbildung = Ja) -->
+        <div id="bafoeg-details" class="versteckt" style="margin-top: var(--abstand-m);">
+          <div class="felder-grid">
+
+            <div class="feld">
+              <label for="ausbildungsart">Art der Ausbildung</label>
+              <select id="ausbildungsart" name="ausbildungsart">
+                <option value="">— bitte wählen —</option>
+                <option value="vollzeitstudium">Vollzeitstudium (Universität / FH)</option>
+                <option value="teilzeitstudium">Teilzeitstudium</option>
+                <option value="ausbildung_dual">Ausbildung (dual)</option>
+                <option value="ausbildung_schulisch">Ausbildung (schulisch)</option>
+                <option value="abendgymnasium">Abendgymnasium / Abendschule</option>
+              </select>
+            </div>
+
+            <div class="feld">
+              <label for="bafoegFoerderfaehig">
+                BAföG-Förderfähigkeit dem Grunde nach
+                <span id="bafoeg-auto-hinweis" class="auto-badge">automatisch ermittelt</span>
+              </label>
+              <select id="bafoegFoerderfaehig" name="bafoegFoerderfaehig">
+                <option value="unklar">— unklar / bitte prüfen —</option>
+                <option value="ja">Ja (dem Grunde nach förderfähig)</option>
+                <option value="nein">Nein (nicht förderfähig)</option>
+              </select>
+              <span class="feld-hinweis">Kann manuell überschrieben werden</span>
+            </div>
+
+            <div class="feld">
+              <label for="ausbildungsStatus">Aktueller Ausbildungsstatus</label>
+              <select id="ausbildungsStatus" name="ausbildungsStatus">
+                <option value="">— bitte wählen —</option>
+                <option value="immatrikuliert">Immatrikuliert / in Ausbildung</option>
+                <option value="beurlaubt">Beurlaubt</option>
+                <option value="krank_schwanger">Erkrankt / Schwangerschaft (&gt; 3 Monate)</option>
+                <option value="bafoeg_ausstehend">BAföG-Antrag gestellt, noch nicht entschieden</option>
+              </select>
+            </div>
+
+          </div>
+        </div>
+
+      </div><!-- /s-bafoeg -->
+
+      <hr class="trenner" />
+
+      <!-- SEKTION D: Einkommen, Vermögen, Unterbringung -->
+      <div class="sektion" data-sektion="s-einkommen-vermoegen">
+        <h3 class="sektion-titel">
+          Einkommen, Vermögen &amp; Unterbringung
+          <span class="sektion-badge">§§ 9, 11, 12 SGB II</span>
+        </h3>
+
+        <div class="felder-grid">
+
+          <div class="feld">
+            <label for="nettoEinkommen">
+              Monatliches Einkommen (netto)
+            </label>
+            <input type="number" id="nettoEinkommen" name="nettoEinkommen"
+                   min="0" step="1" placeholder="z. B. 900"
+                   aria-describedby="netto-hinweis" />
+            <span class="feld-hinweis" id="netto-hinweis">In Euro (€), alle Einkünfte zusammen</span>
+          </div>
+
+          <div class="feld">
+            <label for="vermoegen">
+              Verwertbares Vermögen der Bedarfsgemeinschaft
+            </label>
+            <input type="number" id="vermoegen" name="vermoegen"
+                   min="0" step="100" placeholder="z. B. 5000"
+                   aria-describedby="vermoegen-hinweis" />
+            <span class="feld-hinweis" id="vermoegen-hinweis">In Euro (€), Gesamtvermögen BG</span>
+          </div>
+
+          <div class="feld feld-breit">
+            <label>
+              Stationäre Unterbringung (§ 7 Abs. 4 SGB II)
+            </label>
+            <div class="radio-gruppe" role="radiogroup" aria-label="Stationäre Unterbringung">
+              <label class="radio-item">
+                <input type="radio" name="stationaer" value="nein" checked />
+                <span>Nein</span>
+              </label>
+              <label class="radio-item">
+                <input type="radio" name="stationaer" value="ja" />
+                <span>Ja (Krankenhaus, Reha o. Ä.)</span>
+              </label>
+            </div>
+          </div>
+
+        </div>
+
+      </div><!-- /s-einkommen-vermoegen -->
+
+    </section><!-- /eingabe-bereich -->
+
+    <!-- PRÜFEN-BUTTON ------------------------------------ -->
+    <div class="pruef-bar">
+      <button id="btn-pruefen" class="btn-pruefen" type="button"
+              aria-label="Anspruch prüfen">
+        ⚖️ Anspruch prüfen
+      </button>
+    </div>
+
+    <!-- ③ ERGEBNISBEREICH ------------------------------- -->
+    <section id="ergebnis-bereich" class="ergebnis-bereich"
+             aria-live="polite" aria-label="Prüfungsergebnis">
+
+      <!-- Ampel-Karte -->
+      <div id="ampel-karte" class="ampel-karte" role="status">
+        <!-- wird dynamisch befüllt -->
+      </div>
+
+      <!-- Prüfschritte -->
+      <div class="pruefschritte-karte">
+        <h3>Geprüfte Kriterien im Einzelnen</h3>
+        <div id="pruefschritte-liste" role="list">
+          <!-- wird dynamisch befüllt -->
+        </div>
+      </div>
+
+      <!-- Nachweisliste -->
+      <div id="nachweise-karte" class="nachweise-karte">
+        <h3>📎 Anzufordernde Nachweise</h3>
+        <ul id="nachweise-liste">
+          <!-- wird dynamisch befüllt -->
+        </ul>
+      </div>
+
+      <!-- Prüfvermerk -->
+      <div class="pruefvermerk-karte">
+        <h3>📄 Kopierbarer Prüfvermerk</h3>
+        <pre id="pruefvermerk-text" class="pruefvermerk-text"
+             aria-label="Prüfvermerk-Text"></pre>
+        <button id="btn-kopieren" class="btn-kopieren" type="button">
+          📋 Vermerk kopieren
+        </button>
+      </div>
+
+      <!-- Rechtsstand -->
+      <p id="rechtsstand-hinweis" class="rechtsstand-hinweis" role="note">
+        <!-- wird dynamisch befüllt -->
+      </p>
+
+    </section><!-- /ergebnis-bereich -->
+
+  </main>
+
+  <!-- ====================================================
+       FUSSZEILE
+       ==================================================== -->
+  <footer role="contentinfo">
+    SGB II Prüfassistent &nbsp;|&nbsp; Prototyp &nbsp;|&nbsp;
+    Dieses Tool ist ein Hilfsmittel und ersetzt keine rechtlich verbindliche Einzelfallentscheidung.
+  </footer>
+
+  <!-- Toast-Meldung -->
+  <div id="toast" class="toast" role="alert" aria-live="assertive"></div>
+
+  <!-- Skripte (Reihenfolge beachten!) -->
+  <script src="config.js"></script>
+  <script src="rule-engine.js"></script>
+  <script src="main.js"></script>
+
+</body>
+</html>

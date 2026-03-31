@@ -1,0 +1,798 @@
+/* ============================================================
+   SGB II Prüfassistent — Stylesheet
+   styles.css
+   Schlichtes, helles Design mit hohen Kontrasten (WCAG AA)
+   ============================================================ */
+
+/* --- RESET & BASISVARIABLEN -------------------------------- */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  /* Primärfarben */
+  --blau:          #005faf;
+  --blau-dunkel:   #003f7a;
+  --blau-hell:     #deeaf7;
+  --blau-border:   #a8c8e8;
+
+  /* Grautöne */
+  --grau-100:  #f5f6f8;
+  --grau-200:  #eaedf1;
+  --grau-300:  #d1d6de;
+  --grau-500:  #6b7685;
+  --grau-700:  #3a4252;
+  --grau-900:  #1a2030;
+
+  /* Ampelfarben */
+  --gruen:         #1a6e2e;
+  --gruen-bg:      #eaf4ec;
+  --gruen-border:  #84c99a;
+  --gelb:          #7a5c00;
+  --gelb-bg:       #fdf6e0;
+  --gelb-border:   #e0c060;
+  --rot:           #9b1a1a;
+  --rot-bg:        #fdeaea;
+  --rot-border:    #e08080;
+
+  /* Typografie */
+  --schrift-basis: 'Segoe UI', 'Calibri', 'Helvetica Neue', Arial, sans-serif;
+  --schrift-mono:  'Consolas', 'Courier New', monospace;
+
+  /* Abstände */
+  --abstand-xs:  4px;
+  --abstand-s:   8px;
+  --abstand-m:  16px;
+  --abstand-l:  24px;
+  --abstand-xl: 40px;
+
+  /* Schatten */
+  --schatten-s: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+  --schatten-m: 0 2px 8px rgba(0,0,0,.10), 0 1px 4px rgba(0,0,0,.06);
+
+  /* Rahmen */
+  --radius:    6px;
+  --radius-l: 10px;
+}
+
+/* --- GRUNDLAYOUT ------------------------------------------- */
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--schrift-basis);
+  background-color: var(--grau-100);
+  color: var(--grau-900);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* --- SEITENKOPF ------------------------------------------- */
+header {
+  background: var(--blau);
+  color: #fff;
+  padding: var(--abstand-m) var(--abstand-xl);
+  display: flex;
+  align-items: center;
+  gap: var(--abstand-m);
+  box-shadow: 0 2px 6px rgba(0,0,0,.18);
+}
+
+.header-icon {
+  width: 44px;
+  height: 44px;
+  background: rgba(255,255,255,0.18);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.header-text h1 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+}
+
+.header-text p {
+  font-size: 0.82rem;
+  opacity: 0.85;
+  margin-top: 2px;
+}
+
+/* --- HAUPTCONTAINER --------------------------------------- */
+.container {
+  max-width: 960px;
+  margin: var(--abstand-l) auto var(--abstand-xl);
+  padding: 0 var(--abstand-m);
+}
+
+/* --- FALLTYP-AUSWAHL -------------------------------------- */
+.falltyp-auswahl {
+  background: #fff;
+  border: 1px solid var(--grau-300);
+  border-radius: var(--radius-l);
+  padding: var(--abstand-l);
+  margin-bottom: var(--abstand-l);
+  box-shadow: var(--schatten-s);
+}
+
+.falltyp-auswahl h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--grau-700);
+  margin-bottom: var(--abstand-m);
+  display: flex;
+  align-items: center;
+  gap: var(--abstand-s);
+}
+
+.falltyp-auswahl h2::before {
+  content: '①';
+  background: var(--blau);
+  color: #fff;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.falltyp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--abstand-s);
+}
+
+.falltyp-btn {
+  border: 2px solid var(--grau-300);
+  background: #fff;
+  border-radius: var(--radius);
+  padding: var(--abstand-m) var(--abstand-s);
+  cursor: pointer;
+  font-family: var(--schrift-basis);
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--grau-700);
+  text-align: center;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--abstand-xs);
+}
+
+.falltyp-btn:hover {
+  border-color: var(--blau);
+  color: var(--blau);
+  background: var(--blau-hell);
+}
+
+.falltyp-btn.aktiv {
+  border-color: var(--blau);
+  background: var(--blau);
+  color: #fff;
+}
+
+.falltyp-btn .falltyp-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+/* --- EINGABEBEREICH --------------------------------------- */
+.eingabe-bereich {
+  background: #fff;
+  border: 1px solid var(--grau-300);
+  border-radius: var(--radius-l);
+  padding: var(--abstand-l);
+  margin-bottom: var(--abstand-l);
+  box-shadow: var(--schatten-s);
+}
+
+.sektion {
+  margin-bottom: var(--abstand-l);
+}
+
+.sektion:last-child {
+  margin-bottom: 0;
+}
+
+.sektion-titel {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--blau-dunkel);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: var(--abstand-m);
+  padding-bottom: var(--abstand-s);
+  border-bottom: 2px solid var(--blau-hell);
+  display: flex;
+  align-items: center;
+  gap: var(--abstand-s);
+}
+
+.sektion-titel .sektion-badge {
+  background: var(--blau);
+  color: #fff;
+  font-size: 0.7rem;
+  padding: 2px 7px;
+  border-radius: 10px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 600;
+}
+
+/* --- FORMULARFELDER --------------------------------------- */
+.felder-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--abstand-m) var(--abstand-l);
+}
+
+.feld {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.feld.feld-breit {
+  grid-column: 1 / -1;
+}
+
+label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--grau-700);
+}
+
+label .pflicht {
+  color: #c0392b;
+  margin-left: 2px;
+}
+
+.feld-hinweis {
+  font-size: 0.78rem;
+  color: var(--grau-500);
+  margin-top: -3px;
+}
+
+input[type="number"],
+input[type="text"],
+select {
+  font-family: var(--schrift-basis);
+  font-size: 0.92rem;
+  color: var(--grau-900);
+  background: #fff;
+  border: 1.5px solid var(--grau-300);
+  border-radius: var(--radius);
+  padding: 7px 10px;
+  width: 100%;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  appearance: auto;
+}
+
+input[type="number"]:focus,
+input[type="text"]:focus,
+select:focus {
+  outline: none;
+  border-color: var(--blau);
+  box-shadow: 0 0 0 3px rgba(0,95,175,.15);
+}
+
+input[type="number"]::placeholder,
+input[type="text"]::placeholder {
+  color: var(--grau-500);
+}
+
+/* Checkboxen */
+.checkbox-gruppe {
+  display: flex;
+  flex-direction: column;
+  gap: var(--abstand-s);
+}
+
+.checkbox-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--abstand-s);
+  cursor: pointer;
+}
+
+.checkbox-item input[type="checkbox"] {
+  width: 17px;
+  height: 17px;
+  margin-top: 2px;
+  flex-shrink: 0;
+  accent-color: var(--blau);
+  cursor: pointer;
+}
+
+.checkbox-item span {
+  font-size: 0.88rem;
+  color: var(--grau-700);
+}
+
+/* Radio-Buttons */
+.radio-gruppe {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--abstand-s);
+}
+
+.radio-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.radio-item input[type="radio"] {
+  accent-color: var(--blau);
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.radio-item span {
+  font-size: 0.88rem;
+  color: var(--grau-700);
+}
+
+/* --- AUTOMATISCH ERMITTELT-BADGE -------------------------- */
+.auto-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--grau-200);
+  color: var(--grau-500);
+  font-size: 0.73rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-left: var(--abstand-s);
+  font-weight: 500;
+}
+
+/* --- TOGGLE-BEREICH (aufklappbar) ------------------------- */
+.toggle-bereich {
+  border: 1px solid var(--grau-200);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-top: var(--abstand-s);
+}
+
+.toggle-header {
+  background: var(--grau-100);
+  padding: var(--abstand-s) var(--abstand-m);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--grau-700);
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  user-select: none;
+}
+
+.toggle-header:hover {
+  background: var(--grau-200);
+}
+
+.toggle-inhalt {
+  padding: var(--abstand-m);
+  display: none;
+}
+
+.toggle-inhalt.offen {
+  display: block;
+}
+
+/* --- PRÜFEN-BUTTON ---------------------------------------- */
+.pruef-bar {
+  text-align: right;
+  margin-bottom: var(--abstand-l);
+}
+
+.btn-pruefen {
+  background: var(--blau);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  padding: 12px 32px;
+  font-family: var(--schrift-basis);
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  transition: background 0.15s, box-shadow 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--abstand-s);
+}
+
+.btn-pruefen:hover {
+  background: var(--blau-dunkel);
+  box-shadow: 0 2px 8px rgba(0,63,122,.3);
+}
+
+.btn-pruefen:active {
+  transform: translateY(1px);
+}
+
+.btn-pruefen:focus-visible {
+  outline: 3px solid var(--blau);
+  outline-offset: 2px;
+}
+
+/* --- ERGEBNISBEREICH -------------------------------------- */
+.ergebnis-bereich {
+  display: none;
+}
+
+.ergebnis-bereich.sichtbar {
+  display: block;
+}
+
+/* Ampel-Header */
+.ampel-karte {
+  border-radius: var(--radius-l);
+  padding: var(--abstand-l);
+  margin-bottom: var(--abstand-l);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--abstand-l);
+  box-shadow: var(--schatten-m);
+  border-left: 6px solid;
+}
+
+.ampel-karte.gruen {
+  background: var(--gruen-bg);
+  border-color: var(--gruen);
+}
+
+.ampel-karte.gelb {
+  background: var(--gelb-bg);
+  border-color: #c8a020;
+}
+
+.ampel-karte.rot {
+  background: var(--rot-bg);
+  border-color: var(--rot);
+}
+
+.ampel-symbol {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  flex-shrink: 0;
+}
+
+.ampel-karte.gruen .ampel-symbol { background: var(--gruen); }
+.ampel-karte.gelb  .ampel-symbol { background: #c8a020; }
+.ampel-karte.rot   .ampel-symbol { background: var(--rot); }
+
+.ampel-text h2 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.ampel-karte.gruen .ampel-text h2 { color: var(--gruen); }
+.ampel-karte.gelb  .ampel-text h2 { color: var(--gelb); }
+.ampel-karte.rot   .ampel-text h2 { color: var(--rot); }
+
+.ampel-text p {
+  font-size: 0.9rem;
+  color: var(--grau-700);
+  line-height: 1.5;
+}
+
+/* --- PRÜFSCHRITTE ----------------------------------------- */
+.pruefschritte-karte {
+  background: #fff;
+  border: 1px solid var(--grau-300);
+  border-radius: var(--radius-l);
+  padding: var(--abstand-l);
+  margin-bottom: var(--abstand-l);
+  box-shadow: var(--schatten-s);
+}
+
+.pruefschritte-karte h3 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--grau-700);
+  margin-bottom: var(--abstand-m);
+  padding-bottom: var(--abstand-s);
+  border-bottom: 1px solid var(--grau-200);
+}
+
+.pruefschritt {
+  display: flex;
+  gap: var(--abstand-m);
+  padding: var(--abstand-m) 0;
+  border-bottom: 1px solid var(--grau-200);
+}
+
+.pruefschritt:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.pruefschritt-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.pruefschritt.ok     .pruefschritt-icon { background: var(--gruen-bg); color: var(--gruen); border: 1.5px solid var(--gruen-border); }
+.pruefschritt.warnung .pruefschritt-icon { background: var(--gelb-bg);  color: var(--gelb);  border: 1.5px solid var(--gelb-border); }
+.pruefschritt.ausschluss .pruefschritt-icon { background: var(--rot-bg);  color: var(--rot);   border: 1.5px solid var(--rot-border); }
+.pruefschritt.info   .pruefschritt-icon { background: var(--blau-hell); color: var(--blau);  border: 1.5px solid var(--blau-border); }
+
+.pruefschritt-inhalt {
+  flex: 1;
+}
+
+.pruefschritt-kriterium {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--grau-900);
+  margin-bottom: 3px;
+}
+
+.pruefschritt-begruendung {
+  font-size: 0.85rem;
+  color: var(--grau-700);
+  line-height: 1.5;
+}
+
+.pruefschritt-nachweise {
+  margin-top: var(--abstand-s);
+  padding-left: var(--abstand-m);
+}
+
+.pruefschritt-nachweise li {
+  font-size: 0.82rem;
+  color: var(--blau-dunkel);
+  line-height: 1.6;
+}
+
+.pruefschritt-nachweise li::marker {
+  content: '→ ';
+  color: var(--blau);
+}
+
+/* --- NACHWEISLISTE ---------------------------------------- */
+.nachweise-karte {
+  background: var(--blau-hell);
+  border: 1px solid var(--blau-border);
+  border-radius: var(--radius-l);
+  padding: var(--abstand-l);
+  margin-bottom: var(--abstand-l);
+}
+
+.nachweise-karte h3 {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--blau-dunkel);
+  margin-bottom: var(--abstand-m);
+}
+
+.nachweise-karte ul {
+  padding-left: var(--abstand-m);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nachweise-karte li {
+  font-size: 0.88rem;
+  color: var(--grau-900);
+  line-height: 1.5;
+}
+
+.nachweise-karte li::marker {
+  color: var(--blau);
+}
+
+/* --- PRÜFVERMERK ------------------------------------------ */
+.pruefvermerk-karte {
+  background: #fff;
+  border: 1px solid var(--grau-300);
+  border-radius: var(--radius-l);
+  padding: var(--abstand-l);
+  margin-bottom: var(--abstand-l);
+  box-shadow: var(--schatten-s);
+}
+
+.pruefvermerk-karte h3 {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--grau-700);
+  margin-bottom: var(--abstand-m);
+}
+
+.pruefvermerk-text {
+  background: var(--grau-100);
+  border: 1px solid var(--grau-300);
+  border-radius: var(--radius);
+  padding: var(--abstand-m);
+  font-family: var(--schrift-mono);
+  font-size: 0.82rem;
+  color: var(--grau-900);
+  white-space: pre-wrap;
+  line-height: 1.7;
+  min-height: 100px;
+  user-select: all;
+}
+
+.btn-kopieren {
+  margin-top: var(--abstand-s);
+  background: #fff;
+  color: var(--blau);
+  border: 1.5px solid var(--blau);
+  border-radius: var(--radius);
+  padding: 7px 18px;
+  font-family: var(--schrift-basis);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--abstand-xs);
+}
+
+.btn-kopieren:hover {
+  background: var(--blau);
+  color: #fff;
+}
+
+.btn-kopieren.kopiert {
+  background: var(--gruen);
+  color: #fff;
+  border-color: var(--gruen);
+}
+
+/* --- RECHTSSTAND-HINWEIS ---------------------------------- */
+.rechtsstand-hinweis {
+  background: var(--grau-200);
+  border-radius: var(--radius);
+  padding: var(--abstand-m);
+  font-size: 0.8rem;
+  color: var(--grau-500);
+  text-align: center;
+  margin-bottom: var(--abstand-l);
+}
+
+/* --- SEPARATOR -------------------------------------------- */
+hr.trenner {
+  border: none;
+  border-top: 1px solid var(--grau-200);
+  margin: var(--abstand-l) 0;
+}
+
+/* --- STATUS-TAG ------------------------------------------- */
+.status-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-left: var(--abstand-s);
+  vertical-align: middle;
+}
+
+.status-tag.pflicht { background: #fde8e8; color: #9b1a1a; }
+.status-tag.optional { background: var(--grau-200); color: var(--grau-500); }
+
+/* --- SICHTBARKEIT ----------------------------------------- */
+.versteckt {
+  display: none !important;
+}
+
+/* --- TOAST / MELDUNG -------------------------------------- */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: var(--grau-900);
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: var(--radius);
+  font-size: 0.88rem;
+  font-weight: 600;
+  box-shadow: var(--schatten-m);
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.2s, transform 0.2s;
+  pointer-events: none;
+  z-index: 999;
+}
+
+.toast.sichtbar {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* --- FUSSZEILE -------------------------------------------- */
+footer {
+  background: var(--grau-200);
+  border-top: 1px solid var(--grau-300);
+  padding: var(--abstand-m) var(--abstand-xl);
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--grau-500);
+}
+
+/* --- RESPONSIVE ------------------------------------------- */
+@media (max-width: 700px) {
+  header {
+    padding: var(--abstand-m);
+  }
+
+  .container {
+    padding: 0 var(--abstand-s);
+    margin-top: var(--abstand-m);
+  }
+
+  .felder-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ampel-karte {
+    flex-direction: column;
+    gap: var(--abstand-m);
+  }
+
+  .pruefschritt {
+    flex-direction: column;
+    gap: var(--abstand-s);
+  }
+
+  .falltyp-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* --- FOKUS-SICHTBARKEIT (Accessibility) ------------------- */
+*:focus-visible {
+  outline: 3px solid var(--blau);
+  outline-offset: 2px;
+}
+
+/* --- DRUCKSTIL -------------------------------------------- */
+@media print {
+  header, .falltyp-auswahl, .eingabe-bereich, .pruef-bar, footer {
+    display: none !important;
+  }
+
+  .ergebnis-bereich {
+    display: block !important;
+  }
+
+  .pruefvermerk-text {
+    background: #fff;
+    border: 1px solid #ccc;
+  }
+}
