@@ -1,661 +1,514 @@
 /**
  * ============================================================
- *  SGB II Prüfassistent — Rule Engine
- *  rule-engine.js
+ *  SGB II Prüfassistent — Rule Engine v2
+ *  rule-engine.js  |  Fokus: Studierende & EU-Bürger
  *
- *  Enthält ausschließlich Prüflogik nach § 7 SGB II.
- *  KEINE festen Zahlen, Beträge oder Fristen — alle Werte
- *  kommen aus window.CONFIG (config.js).
+ *  Alle Grenzwerte ausschließlich aus window.CONFIG.
+ *  Keine festen Zahlen im Code.
  *
- *  Modulstruktur:
- *  - pruefeAlter()
- *  - pruefeErwerbsfaehigkeit()
- *  - pruefeAufenthaltsrecht()
- *  - pruefeBafoegAusschluss()
- *  - pruefeStationaereUnterbringung()
- *  - pruefeBeduerftigkeit()
- *  - pruefeFallGesamt()  ← Hauptfunktion
+ *  Exportierte Hauptfunktionen:
+ *  - pruefePerson(person)       → Einzelpersonprüfung
+ *  - pruefeBedarfsgemeinschaft(bg) → BG-Gesamtprüfung
  * ============================================================
  */
 
-/** Ergebnistypen für einzelne Prüfschritte */
+// Ergebnistypen
 const ERGEBNIS = {
-  OK: 'ok',           // Voraussetzung erfüllt
-  WARNUNG: 'warnung', // Grauzone, weitere Prüfung nötig
-  AUSSCHLUSS: 'ausschluss', // Ausschlussgrund festgestellt
-  INFO: 'info',       // Neutrale Information
+  OK:          'ok',
+  WARNUNG:     'warnung',
+  AUSSCHLUSS:  'ausschluss',
+  INFO:        'info',
 };
 
 // ============================================================
-//  HILFSFUNKTIONEN
+//  HILFSFUNKTION: Prüfschritt-Objekt erstellen
 // ============================================================
 
 /**
- * Erstellt ein standardisiertes Prüfschritt-Objekt.
- * @param {string} kriterium - Bezeichnung des Prüfpunkts
- * @param {string} ergebnis  - Einer der ERGEBNIS-Werte
- * @param {string} begruendung - Erläuterungstext für die Fachkraft
- * @param {string[]} [nachweise=[]] - Liste benötigter Nachweise
+ * @param {string}   kriterium    - Bezeichnung des Prüfpunkts
+ * @param {string}   ergebnis     - ERGEBNIS.*
+ * @param {string}   begruendung  - Erläuterung für die Fachkraft
+ * @param {string[]} [nachweise]  - Benötigte Dokumente
  * @returns {object}
  */
-function erstellePruefschritt(kriterium, ergebnis, begruendung, nachweise = []) {
+function schritt(kriterium, ergebnis, begruendung, nachweise = []) {
   return { kriterium, ergebnis, begruendung, nachweise };
 }
 
-/**
- * Berechnet den Gesamtbedarf (Regelbedarf) der Bedarfsgemeinschaft.
- * @param {object} fall - Falldaten
- * @returns {number} - Gesamtbedarf in Euro
- */
-function berechneGesamtbedarf(fall) {
-  const rb = CONFIG.regelbedarfe;
-  const familienstand = fall.familienstand;
-  const anzahlKinder = parseInt(fall.anzahlKinder) || 0;
-
-  let bedarf = 0;
-
-  // Hauptperson
-  if (familienstand === 'verheiratet' || familienstand === 'lebenspartnerschaft') {
-    // Partnerschaften: Stufe 2 für beide Partner
-    bedarf += rb.stufe2 * 2;
-  } else {
-    // Alleinstehend oder Alleinerziehend: Stufe 1
-    bedarf += rb.stufe1;
-  }
-
-  // Kinder: vereinfachte Berechnung (Durchschnitt Stufe 4–6)
-  // In einem produktiven System würde man das Alter jedes Kindes eingeben
-  const kinderRegelbedarf = anzahlKinder * rb.stufe5; // Annahme: mittlere Stufe
-  bedarf += kinderRegelbedarf;
-
-  return bedarf;
-}
-
-/**
- * Berechnet das anrechenbare Einkommen nach § 11b SGB II.
- * @param {number} nettoEinkommen - monatliches Nettoeinkommen in Euro
- * @param {boolean} hatKinder - ob Kinder im Haushalt vorhanden
- * @returns {number} - anrechenbares Einkommen in Euro
- */
-function berechneAnrechenboresEinkommen(nettoEinkommen, hatKinder) {
-  const freibetraege = CONFIG.einkommensfreibetraege;
-  const einkommen = parseFloat(nettoEinkommen) || 0;
-
-  if (einkommen <= 0) return 0;
-
-  let freibetrag = 0;
-
-  // Grundabsetzungsbetrag
-  if (einkommen > freibetraege.einkommensgrenzeUntenStufe1) {
-    freibetrag += freibetraege.grundabsetzungsbetrag;
-
-    // Stufe 1: 20 % auf Einkommen zwischen 100 € und 1.000 €
-    const stufe1Basis = Math.min(einkommen, freibetraege.einkommensgrenzeObenStufe1)
-      - freibetraege.einkommensgrenzeUntenStufe1;
-    freibetrag += stufe1Basis * (freibetraege.erwerbstaetigenFreibetragStufe1Prozent / 100);
-
-    // Stufe 2: 10 % auf Einkommen zwischen 1.000 € und 1.200/1.500 €
-    const obergrenzeStudfe2 = hatKinder
-      ? freibetraege.einkommensgrenzeObenStufe2MitKindern
-      : freibetraege.einkommensgrenzeObenStufe2OhneKinder;
-
-    if (einkommen > freibetraege.einkommensgrenzeObenStufe1) {
-      const stufe2Basis = Math.min(einkommen, obergrenzeStudfe2)
-        - freibetraege.einkommensgrenzeObenStufe1;
-      freibetrag += stufe2Basis * (freibetraege.erwerbstaetigenFreibetragStufe2Prozent / 100);
-    }
-  }
-
-  return Math.max(0, einkommen - freibetrag);
-}
-
-/**
- * Berechnet den Vermögensfreibetrag für die Bedarfsgemeinschaft.
- * @param {number} anzahlPersonen - Anzahl Personen in der BG
- * @param {number} alter - Alter der antragstellenden Person (Jahre)
- * @returns {number} - Freibetrag in Euro
- */
-function berechneVermoegensfreibetrag(anzahlPersonen, alter) {
-  const vg = CONFIG.vermoegen;
-  const grundfreibetrag = vg.grundfreibetragProPerson * anzahlPersonen;
-  const anschaffungsfreibetrag = vg.anschaffungsfreibetrag;
-
-  // Altersvorsorge-Freibetrag: 750 € × vollendete Lebensjahre
-  const altersvorsorgeFreibetrag = Math.min(
-    vg.altersvorsorgeFreibetragJeLebensjahr * (parseInt(alter) || 0),
-    vg.altersvorsorgeFreibetragProPerson * anzahlPersonen
-  );
-
-  return grundfreibetrag + anschaffungsfreibetrag + altersvorsorgeFreibetrag;
-}
-
 // ============================================================
-//  PRÜFMODULE
+//  MODUL 1: ALTERSVORAUSSETZUNG (§ 7 Abs. 1 Nr. 1 SGB II)
 // ============================================================
 
-/**
- * Prüft das Alter der Person (§ 7 Abs. 1 Nr. 1 SGB II).
- * @param {object} fall - Falldaten
- * @returns {object} - Prüfschritt-Objekt
- */
-function pruefeAlter(fall) {
-  const alter = parseInt(fall.alter);
-  const min = CONFIG.alter.minimum;
-  const max = CONFIG.alter.regelaltersgrenze;
+function pruefeAlter(person) {
+  const alter = parseInt(person.alter);
+  const { minimum, regelaltersgrenze } = CONFIG.alter;
 
   if (isNaN(alter)) {
-    return erstellePruefschritt(
+    return schritt(
       'Altersvoraussetzung (§ 7 Abs. 1 Nr. 1 SGB II)',
       ERGEBNIS.WARNUNG,
-      'Kein Alter angegeben. Bitte Alter der Person erfassen.'
+      'Kein Alter angegeben — bitte erfassen.'
     );
   }
-
-  if (alter < min) {
-    return erstellePruefschritt(
+  if (alter < minimum) {
+    return schritt(
       'Altersvoraussetzung (§ 7 Abs. 1 Nr. 1 SGB II)',
       ERGEBNIS.AUSSCHLUSS,
-      `Person ist ${alter} Jahre alt. Mindestalter für Bürgergeld: ${min} Jahre. Kein Anspruch.`
+      `Person ist ${alter} Jahre alt. Mindestalter: ${minimum} Jahre. Kein Anspruch auf Bürgergeld.`
     );
   }
-
-  if (alter >= max) {
-    return erstellePruefschritt(
+  if (alter >= regelaltersgrenze) {
+    return schritt(
       'Altersvoraussetzung (§ 7 Abs. 1 Nr. 1 SGB II)',
       ERGEBNIS.AUSSCHLUSS,
-      `Person hat die Regelaltersgrenze (${max} Jahre) erreicht oder überschritten. Leistungen nach SGB XII (Grundsicherung im Alter) prüfen.`
+      `Person hat die Regelaltersgrenze (${regelaltersgrenze} Jahre) erreicht. Leistungen nach SGB XII prüfen.`
     );
   }
-
-  return erstellePruefschritt(
+  return schritt(
     'Altersvoraussetzung (§ 7 Abs. 1 Nr. 1 SGB II)',
     ERGEBNIS.OK,
-    `Alter (${alter} Jahre) liegt im Leistungsbereich (${min}–unter ${max} Jahre).`
+    `Alter (${alter} Jahre) liegt im Leistungsbereich (${minimum}–unter ${regelaltersgrenze} Jahre).`
   );
 }
 
-/**
- * Prüft die Erwerbsfähigkeit (§ 7 Abs. 1 Nr. 2, § 8 SGB II).
- * @param {object} fall - Falldaten
- * @returns {object} - Prüfschritt-Objekt
- */
-function pruefeErwerbsfaehigkeit(fall) {
-  const erwerbsfaehig = fall.erwerbsfaehigkeit;
-  const minStunden = CONFIG.erwerbsfaehigkeit.mindestStundenProTag;
+// ============================================================
+//  MODUL 2: ERWERBSFÄHIGKEIT (§ 7 Abs. 1 Nr. 2, § 8 SGB II)
+// ============================================================
 
-  if (!erwerbsfaehig) {
-    return erstellePruefschritt(
-      'Erwerbsfähigkeit (§ 7 Abs. 1 Nr. 2, § 8 SGB II)',
-      ERGEBNIS.WARNUNG,
-      'Erwerbsfähigkeit nicht angegeben.'
-    );
-  }
-
-  switch (erwerbsfaehig) {
+function pruefeErwerbsfaehigkeit(person) {
+  switch (person.erwerbsfaehigkeit) {
     case 'ja':
-      return erstellePruefschritt(
-        'Erwerbsfähigkeit (§ 7 Abs. 1 Nr. 2, § 8 SGB II)',
+      return schritt(
+        'Erwerbsfähigkeit (§ 8 SGB II)',
         ERGEBNIS.OK,
-        `Person ist erwerbsfähig (mindestens ${minStunden} Stunden/Tag unter den üblichen Bedingungen des Arbeitsmarkts).`
+        'Person ist erwerbsfähig (mind. 3 Stunden täglich unter üblichen Bedingungen).'
       );
-
     case 'nein':
-      return erstellePruefschritt(
-        'Erwerbsfähigkeit (§ 7 Abs. 1 Nr. 2, § 8 SGB II)',
+      return schritt(
+        'Erwerbsfähigkeit (§ 8 SGB II)',
         ERGEBNIS.AUSSCHLUSS,
-        'Person ist nicht erwerbsfähig. Kein Anspruch auf Bürgergeld (SGB II). Prüfung auf Sozialhilfe / Grundsicherung nach SGB XII erforderlich.',
-        ['Ärztliches Attest', 'Gutachten der Rentenversicherung oder des ärztlichen Dienstes']
+        'Person ist nicht erwerbsfähig. Kein Anspruch auf Bürgergeld (SGB II). Prüfung auf SGB XII erforderlich.',
+        ['Ärztliches Attest', 'Ggf. Gutachten ärztlicher Dienst / Rentenversicherung']
       );
-
     case 'eingeschraenkt':
-      return erstellePruefschritt(
-        'Erwerbsfähigkeit (§ 7 Abs. 1 Nr. 2, § 8 SGB II)',
+      return schritt(
+        'Erwerbsfähigkeit (§ 8 SGB II)',
         ERGEBNIS.WARNUNG,
-        CONFIG.hinweise.eingeschraenktErwerbsfaehig,
-        ['Ärztliches Attest', 'Ggf. Gutachten zum Leistungsvermögen']
+        CONFIG.hinweise.sgbXII,
+        ['Ärztliches Attest', 'Gutachten zum Leistungsvermögen']
       );
-
     default:
-      return erstellePruefschritt(
-        'Erwerbsfähigkeit (§ 7 Abs. 1 Nr. 2, § 8 SGB II)',
+      return schritt(
+        'Erwerbsfähigkeit (§ 8 SGB II)',
         ERGEBNIS.WARNUNG,
-        'Erwerbsfähigkeitsstatus unklar. Bitte konkretisieren.'
+        'Erwerbsfähigkeit nicht angegeben — bitte erfassen.'
       );
   }
 }
 
-/**
- * Prüft das Aufenthaltsrecht für EU-Bürger (§ 7 Abs. 1 S. 2 SGB II).
- * @param {object} fall - Falldaten
- * @returns {object[]} - Array von Prüfschritt-Objekten
- */
-function pruefeAufenthaltsrecht(fall) {
+// ============================================================
+//  MODUL 3: BAföG / STUDIERENDEN-AUSSCHLUSS (§ 7 Abs. 5/6 SGB II)
+// ============================================================
+
+function pruefeBafoeg(person) {
+  // Keine Ausbildung → kein Ausschluss
+  if (!person.inAusbildung || person.inAusbildung === 'nein') {
+    return [schritt(
+      'Ausbildungs-/BAföG-Ausschluss (§ 7 Abs. 5 SGB II)',
+      ERGEBNIS.OK,
+      'Keine Ausbildung oder Studium angegeben. Ausschlussgrund liegt nicht vor.'
+    )];
+  }
+
   const schritte = [];
-  const staatsangehoerigkeit = fall.staatsangehoerigkeit;
+  const cfg = CONFIG.bafoeg;
+  const art = person.ausbildungsart;
 
-  // Prüfung nur bei EU-Bürgern relevant
-  if (staatsangehoerigkeit === 'deutschland') {
-    schritte.push(erstellePruefschritt(
-      'Aufenthaltsrecht (§ 7 Abs. 1 S. 2 SGB II)',
+  // ---- Förderfähigkeit ermitteln ----
+  let foerderfaehig = person.bafoegFoerderfaehig; // 'ja' | 'nein' | 'auto'
+
+  if (foerderfaehig === 'auto' || !foerderfaehig) {
+    if (cfg.foerderfaehigeArten.includes(art))       foerderfaehig = 'ja';
+    else if (cfg.nichtFoerderfaehigeArten.includes(art)) foerderfaehig = 'nein';
+    else                                              foerderfaehig = 'unklar';
+  }
+
+  // Nicht förderfähig → kein Ausschluss
+  if (foerderfaehig === 'nein') {
+    schritte.push(schritt(
+      'BAföG-Förderfähigkeit (§ 7 Abs. 5 SGB II)',
       ERGEBNIS.OK,
-      'Deutsche Staatsangehörige unterliegen keinen freizügigkeitsrechtlichen Einschränkungen.'
+      'Ausbildung ist dem Grunde nach nicht BAföG-förderfähig. Kein Ausschluss nach § 7 Abs. 5 SGB II.'
     ));
     return schritte;
   }
 
-  if (staatsangehoerigkeit === 'drittstaat') {
-    schritte.push(erstellePruefschritt(
-      'Aufenthaltsrecht / Drittstaatangehörige',
+  if (foerderfaehig === 'unklar') {
+    schritte.push(schritt(
+      'BAföG-Förderfähigkeit (§ 7 Abs. 5 SGB II)',
       ERGEBNIS.WARNUNG,
-      'Bei Drittstaatangehörigen ist der konkrete Aufenthaltstitel maßgeblich. Ausschlüsse gem. § 7 Abs. 1 S. 2 Nr. 3, § 8 Abs. 2 AufenthG prüfen.',
-      ['Aufenthaltstitel / Niederlassungserlaubnis', 'Ggf. Abstimmung mit Ausländerbehörde']
+      'BAföG-Förderfähigkeit nicht eindeutig ermittelbar. Bitte manuell prüfen und ggf. BAföG-Amt konsultieren.',
+      ['Immatrikulationsbescheinigung', 'Ggf. Auskunft BAföG-Amt']
     ));
     return schritte;
   }
 
-  // ---- AB HIER: EU-Bürger ----
-  const cfg = CONFIG.aufenthaltsrecht;
-  const aufenthaltsdauerMonate = parseInt(fall.aufenthaltsdauerMonate) || 0;
-  const aufenthaltsStatus = fall.aufenthaltsStatus;
-  const wochenstunden = parseFloat(fall.wochenstunden) || 0;
-  const bruttoEinkommen = parseFloat(fall.bruttoEinkommen) || 0;
-  const istUnbefristet = fall.istUnbefristet === true;
+  // ---- Ausbildung ist BAföG-förderfähig → Ausnahmen prüfen ----
+  schritte.push(schritt(
+    'BAföG-Förderfähigkeit (§ 7 Abs. 5 SGB II)',
+    ERGEBNIS.INFO,
+    `Ausbildungsart "${person.ausbildungsartLabel || art}" ist dem Grunde nach BAföG-förderfähig. Ausnahmen nach § 7 Abs. 6 SGB II werden geprüft.`
+  ));
 
-  // Prüfe: Daueraufenthaltsrecht nach 5 Jahren?
-  if (aufenthaltsdauerMonate >= cfg.daueraufenthaltsrechtNachMonate) {
-    schritte.push(erstellePruefschritt(
-      'Daueraufenthaltsrecht (§ 4a FreizügG/EU)',
-      ERGEBNIS.OK,
-      `Aufenthaltsdauer (${aufenthaltsdauerMonate} Monate) überschreitet die Grenze für das Daueraufenthaltsrecht (${cfg.daueraufenthaltsrechtNachMonate} Monate = 5 Jahre). Freizügigkeitsrechtliche Einschränkungen entfallen.`,
-      ['Nachweis der 5-jährigen rechtmäßigen Aufenthaltsdauer (z. B. Bescheinigung gem. § 5 FreizügG/EU)']
+  const status = person.ausbildungsStatus;
+
+  if (status === 'beurlaubt') {
+    schritte.push(schritt(
+      'Ausnahme: Beurlaubung (§ 7 Abs. 6 Nr. 2 SGB II)',
+      ERGEBNIS.WARNUNG,
+      'Person ist beurlaubt. Ausschluss nach § 7 Abs. 5 SGB II kann entfallen — Einzelfallprüfung erforderlich.',
+      ['Beurlaubungsbescheid der Hochschule / Berufsschule']
     ));
     return schritte;
   }
 
-  // Prüfe: Erste 3 Monate
-  if (aufenthaltsdauerMonate < cfg.ersteDreiMonateSperrfristMonate) {
-    if (aufenthaltsStatus !== 'arbeitnehmer' && aufenthaltsStatus !== 'selbststaendig') {
-      schritte.push(erstellePruefschritt(
-        'Sperrfrist erste 3 Monate (§ 7 Abs. 1 S. 2 Nr. 1 SGB II)',
-        ERGEBNIS.AUSSCHLUSS,
-        `Person hält sich erst seit ${aufenthaltsdauerMonate} Monat(en) in Deutschland auf. In den ersten ${cfg.ersteDreiMonateSperrfristMonate} Monaten besteht ohne Arbeitnehmerstatus kein Anspruch auf Bürgergeld.`
-      ));
+  if (status === 'krank_schwanger') {
+    schritte.push(schritt(
+      'Ausnahme: Krankheit / Schwangerschaft (§ 7 Abs. 6 Nr. 1 SGB II)',
+      ERGEBNIS.WARNUNG,
+      `Ausnahme möglich, wenn Erkrankung oder Schwangerschaft voraussichtlich nicht länger als ${cfg.erkrankungAusnahmedauerMonate} Monate andauert. Einzelfallprüfung erforderlich.`,
+      ['Ärztliches Attest mit Prognose', 'Voraussichtliches Ende der Erkrankung']
+    ));
+    return schritte;
+  }
+
+  if (status === 'bafoeg_ausstehend') {
+    schritte.push(schritt(
+      'BAföG-Antrag gestellt, noch nicht entschieden',
+      ERGEBNIS.WARNUNG,
+      CONFIG.hinweise.bafoegDarlehen,
+      ['Eingangsbestätigung BAföG-Antrag', 'Ggf. Darlehen nach § 27 SGB II prüfen']
+    ));
+    return schritte;
+  }
+
+  if (status === 'immatrikuliert') {
+    // Sonderfall § 7 Abs. 6 Nr. 2: Wohnen bei Eltern → Aufstockung möglich?
+    if (person.wohntBeiEltern === true) {
+      schritte.push(...pruefeAufstockungBeiEltern(person));
       return schritte;
     }
-  }
 
-  // Status: Arbeitnehmer
-  if (aufenthaltsStatus === 'arbeitnehmer') {
-    const hatAusreichendeStunden = wochenstunden >= cfg.mindestarbeitsstundenArbeitnehmereigenschaft;
-    const hatAusreichendesEinkommen = bruttoEinkommen >= cfg.mindesteinkommenArbeitnehmereigenschaft;
-
-    if (hatAusreichendeStunden && hatAusreichendesEinkommen) {
-      schritte.push(erstellePruefschritt(
-        'Arbeitnehmerstatus (§ 2 Abs. 2 Nr. 1 FreizügG/EU)',
-        ERGEBNIS.OK,
-        `Arbeitnehmerstatus plausibel: ${wochenstunden} Std./Woche, ${bruttoEinkommen} € Brutto/Monat (Mindestgrenzen: ${cfg.mindestarbeitsstundenArbeitnehmereigenschaft} Std. / ${cfg.mindesteinkommenArbeitnehmereigenschaft} €).`,
-        ['Arbeitsvertrag', 'Aktuelle Gehaltsabrechnungen (letzten 3 Monate)', 'Kontoauszüge']
-      ));
-    } else if (!hatAusreichendeStunden || !hatAusreichendesEinkommen) {
-      schritte.push(erstellePruefschritt(
-        'Arbeitnehmerstatus (§ 2 Abs. 2 Nr. 1 FreizügG/EU)',
-        ERGEBNIS.WARNUNG,
-        `Arbeitnehmerstatus fraglich: Nur ${wochenstunden} Std./Woche und/oder ${bruttoEinkommen} € Brutto/Monat. Prüfung, ob die Tätigkeit "tatsächlich und echt" ist (EuGH-Rechtsprechung). Ggf. geringfügige Beschäftigung ohne qualifizierten Arbeitnehmerstatus.`,
-        ['Arbeitsvertrag', 'Gehaltsabrechnungen', 'Kontoauszüge', 'Ggf. Stellungnahme Arbeitgeber']
-      ));
-    }
-
-    // Nachwirkender Arbeitnehmerstatus (§ 2 Abs. 3 FreizügG/EU)
-    if (!istUnbefristet) {
-      schritte.push(erstellePruefschritt(
-        'Nachwirkender Arbeitnehmerstatus bei befristeter Beschäftigung',
-        ERGEBNIS.INFO,
-        'Bei befristeter Beschäftigung: Nach Beschäftigungsende bleibt Arbeitnehmerstatus für weitere 6 Monate erhalten, wenn Arbeit unfreiwillig aufgegeben wurde (§ 2 Abs. 3 Nr. 2 FreizügG/EU).'
-      ));
-    }
-    return schritte;
-  }
-
-  // Status: Selbstständig
-  if (aufenthaltsStatus === 'selbststaendig') {
-    schritte.push(erstellePruefschritt(
-      'Selbstständigkeit (§ 2 Abs. 2 Nr. 2 FreizügG/EU)',
-      ERGEBNIS.WARNUNG,
-      'Selbstständige EU-Bürger haben grundsätzlich Freizügigkeit. Die Tatsächlichkeit der selbstständigen Tätigkeit ist zu belegen. Prüfen, ob Einkommen tatsächlich erzielt wird.',
-      ['Gewerbeanmeldung oder Handelsregistereintrag', 'Steuerbescheid / Einnahmen-Ausgaben-Rechnung', 'Kontoauszüge']
+    schritte.push(schritt(
+      'Ausschluss: Studium / Ausbildung (§ 7 Abs. 5 SGB II)',
+      ERGEBNIS.AUSSCHLUSS,
+      'Person ist immatrikuliert / in förderfähiger Ausbildung. Anspruch auf Bürgergeld ist nach § 7 Abs. 5 SGB II ausgeschlossen. Keine Ausnahme nach § 7 Abs. 6 SGB II erkennbar.',
+      ['Immatrikulationsbescheinigung', 'BAföG-Bescheid oder Ablehnungsbescheid']
     ));
     return schritte;
   }
 
-  // Status: Arbeitsuchend
-  if (aufenthaltsStatus === 'arbeitsuchend') {
-    if (aufenthaltsdauerMonate < cfg.ersteDreiMonateSperrfristMonate) {
-      schritte.push(erstellePruefschritt(
-        'Aufenthaltsrecht als Arbeitsuchender (§ 7 Abs. 1 S. 2 Nr. 2 SGB II)',
-        ERGEBNIS.AUSSCHLUSS,
-        `Aufenthalt als Arbeitsuchender: Kein Anspruch in den ersten ${cfg.ersteDreiMonateSperrfristMonate} Monaten.`
-      ));
-    } else if (aufenthaltsdauerMonate > cfg.arbeitssucheNachweisfristMonate) {
-      schritte.push(erstellePruefschritt(
-        'Aufenthaltsrecht als Arbeitsuchender — Nachweisfrist',
-        ERGEBNIS.WARNUNG,
-        `Aufenthalt als Arbeitsuchender dauert bereits ${aufenthaltsdauerMonate} Monate. Nach ${cfg.arbeitssucheNachweisfristMonate} Monaten ohne ernsthafte Bemühungen kann das Aufenthaltsrecht erlöschen. Bitte Nachweise zur Arbeitssuche prüfen.`,
-        ['Bewerbungsunterlagen', 'Nachweise über Arbeitssuchend-Meldung', CONFIG.hinweise.auslaenderbehoerdeAbstimmung]
-      ));
-    } else {
-      schritte.push(erstellePruefschritt(
-        'Aufenthaltsrecht als Arbeitsuchender',
-        ERGEBNIS.WARNUNG,
-        `Aufenthaltsrecht als Arbeitsuchender (§ 2 Abs. 2 Nr. 1a FreizügG/EU): Kein Anspruch auf Bürgergeld nach § 7 Abs. 1 S. 2 Nr. 2 SGB II, sofern keine Vorerwerbstätigkeit in Deutschland nachgewiesen. Ausschluss prüfen.`,
-        [CONFIG.hinweise.auslaenderbehoerdeAbstimmung, 'Nachweis über Arbeitssuche']
-      ));
-    }
-    return schritte;
-  }
-
-  // Status: Familienangehöriger
-  if (aufenthaltsStatus === 'familienangehoerig') {
-    schritte.push(erstellePruefschritt(
-      'Aufenthaltsrecht als Familienangehöriger (§ 3 FreizügG/EU)',
-      ERGEBNIS.WARNUNG,
-      'Familienangehörige leiten ihr Aufenthaltsrecht vom freizügigkeitsberechtigten EU-Bürger ab. Prüfen: Besteht das Aufenthaltsrecht des stammberechtigten EU-Bürgers fort? Ggf. Ausschluss nach § 7 Abs. 1 S. 2 Nr. 2 SGB II.',
-      ['Nachweis der Familienbeziehung (Heiratsurkunde, Geburtsurkunde)', 'Aufenthaltsstatus des stammberechtigten EU-Bürgers klären', CONFIG.hinweise.auslaenderbehoerdeAbstimmung]
-    ));
-    return schritte;
-  }
-
-  // Sonstiges / unklar
-  schritte.push(erstellePruefschritt(
-    'Aufenthaltsrecht (Status unklar)',
+  // Ausbildungsstatus unklar
+  schritte.push(schritt(
+    'Ausbildungs-/BAföG-Ausschluss (§ 7 Abs. 5 SGB II)',
     ERGEBNIS.WARNUNG,
-    'Aufenthaltsstatus nicht eindeutig zuzuordnen. Einzelfallprüfung erforderlich.',
-    [CONFIG.hinweise.auslaenderbehoerdeAbstimmung]
+    'Ausbildungsstatus nicht angegeben. Bitte § 7 Abs. 5 SGB II manuell prüfen.',
+    ['Immatrikulationsbescheinigung', 'Ausbildungsvertrag']
   ));
   return schritte;
 }
 
-/**
- * Prüft den BAföG-Ausschluss (§ 7 Abs. 5 SGB II).
- * @param {object} fall - Falldaten
- * @returns {object} - Prüfschritt-Objekt
- */
-function pruefeBafoegAusschluss(fall) {
-  const inAusbildung = fall.inAusbildung;
+// ============================================================
+//  MODUL 3b: AUFSTOCKUNG BEI ELTERN (§ 7 Abs. 6 Nr. 2 SGB II)
+//
+//  Greift nur wenn:
+//  - Vollzeitstudium, BAföG-förderfähig, immatrikuliert
+//  - UND Person wohnt im elterlichen Haushalt
+//
+//  Logik: BAföG deckt bei Eltern-Wohnung nur 59 € Wohnkosten
+//  → Regelbedarf (451 €) oft nicht vollständig gedeckt
+//  → Aufstockung nach § 7 Abs. 6 Nr. 2 möglich
+// ============================================================
 
-  if (!inAusbildung || inAusbildung === 'nein') {
-    return erstellePruefschritt(
-      'Ausbildungs-/BAföG-Ausschluss (§ 7 Abs. 5 SGB II)',
-      ERGEBNIS.OK,
-      'Keine Ausbildung oder Studium angegeben. Ausschlussgrund nach § 7 Abs. 5 SGB II liegt nicht vor.'
-    );
-  }
-
-  const ausbildungsart = fall.ausbildungsart;
-  const bafoegFoerderfaehig = fall.bafoegFoerderfaehig;
-  const ausbildungsStatus = fall.ausbildungsStatus;
-  const cfg = CONFIG.bafoeg;
-
-  // Automatische Ermittlung der BAföG-Förderfähigkeit
-  let istFoerderfaehig = bafoegFoerderfaehig; // kann manuell überschrieben sein
-
-  if (istFoerderfaehig === null || istFoerderfaehig === undefined || istFoerderfaehig === 'auto') {
-    // Automatisch ermitteln
-    if (cfg.foerderfaehigeAusbildungsarten.includes(ausbildungsart)) {
-      istFoerderfaehig = true;
-    } else if (cfg.nichtFoerderfaehigeAusbildungsarten.includes(ausbildungsart)) {
-      istFoerderfaehig = false;
-    } else {
-      istFoerderfaehig = 'unklar';
-    }
-  }
-
-  if (istFoerderfaehig === false) {
-    return erstellePruefschritt(
-      'Ausbildungs-/BAföG-Ausschluss (§ 7 Abs. 5 SGB II)',
-      ERGEBNIS.OK,
-      'Ausbildung/Studium ist dem Grunde nach nicht BAföG-förderfähig. Kein Ausschluss nach § 7 Abs. 5 SGB II.'
-    );
-  }
-
-  if (istFoerderfaehig === 'unklar') {
-    return erstellePruefschritt(
-      'Ausbildungs-/BAföG-Ausschluss (§ 7 Abs. 5 SGB II)',
-      ERGEBNIS.WARNUNG,
-      'BAföG-Förderfähigkeit nicht eindeutig. Bitte manuell prüfen und ggf. BAföG-Amt konsultieren.',
-      ['Immatrikulationsbescheinigung', 'Ausbildungsvertrag', 'Ggf. Auskunft BAföG-Amt']
-    );
-  }
-
-  // Ausbildung ist BAföG-förderfähig — Ausnahmen prüfen
-  if (!cfg.ausschlussAktiv) {
-    return erstellePruefschritt(
-      'Ausbildungs-/BAföG-Ausschluss (§ 7 Abs. 5 SGB II)',
-      ERGEBNIS.WARNUNG,
-      'Ausschlussregel nach § 7 Abs. 5 SGB II ist in der Konfiguration deaktiviert. Bitte manuell prüfen.'
-    );
-  }
-
-  // Ausnahmen nach § 7 Abs. 6 SGB II prüfen
-  if (ausbildungsStatus === 'beurlaubt') {
-    return erstellePruefschritt(
-      'Ausnahme: Beurlaubung (§ 7 Abs. 6 Nr. 2 SGB II)',
-      ERGEBNIS.WARNUNG,
-      'Person ist beurlaubt. Ausschluss nach § 7 Abs. 5 SGB II entfällt ggf. bei Beurlaubung — Einzelfallprüfung erforderlich.',
-      ['Beurlaubungsbescheid der Hochschule/Berufsschule']
-    );
-  }
-
-  if (ausbildungsStatus === 'krank_schwanger') {
-    return erstellePruefschritt(
-      'Ausnahme: Krankheit / Schwangerschaft (§ 7 Abs. 6 Nr. 1 SGB II)',
-      ERGEBNIS.WARNUNG,
-      `Ausnahme bei Krankheit oder Schwangerschaft möglich, wenn Dauer voraussichtlich nicht mehr als ${cfg.erkrankungAusnahmedauerMonate} Monate überschreitet. Prüfung im Einzelfall.`,
-      ['Ärztliches Attest', 'Voraussichtliches Ende der Erkrankung/Schwangerschaft']
-    );
-  }
-
-  if (ausbildungsStatus === 'bafoeg_ausstehend') {
-    return erstellePruefschritt(
-      'BAföG-Antrag gestellt, noch nicht entschieden',
-      ERGEBNIS.WARNUNG,
-      CONFIG.hinweise.bafoegAntragAusstehend,
-      ['BAföG-Antragsbescheid (Eingangsbestätigung)', 'Ggf. Darlehen nach § 27 SGB II prüfen']
-    );
-  }
-
-  // Normaler Ausschluss
-  if (ausbildungsStatus === 'immatrikuliert') {
-    return erstellePruefschritt(
-      'Ausschluss wegen Ausbildung/Studium (§ 7 Abs. 5 SGB II)',
-      ERGEBNIS.AUSSCHLUSS,
-      `Person ist immatrikuliert/in Ausbildung und die Ausbildung ist dem Grunde nach BAföG-förderfähig. Anspruch auf Bürgergeld ist nach § 7 Abs. 5 SGB II ausgeschlossen. Ausnahmen nach § 7 Abs. 6 SGB II liegen nicht vor.`,
-      ['Immatrikulationsbescheinigung', 'Ausbildungsvertrag', 'BAföG-Bescheid']
-    );
-  }
-
-  return erstellePruefschritt(
-    'Ausbildungs-/BAföG-Ausschluss (§ 7 Abs. 5 SGB II)',
-    ERGEBNIS.WARNUNG,
-    'Ausbildungsstatus nicht eindeutig. Bitte Ausschluss nach § 7 Abs. 5 SGB II manuell prüfen.',
-    ['Immatrikulationsbescheinigung', 'Ausbildungsvertrag']
-  );
-}
-
-/**
- * Prüft den Ausschluss bei stationärer Unterbringung (§ 7 Abs. 4 SGB II).
- * @param {object} fall - Falldaten
- * @returns {object} - Prüfschritt-Objekt
- */
-function pruefeStationaereUnterbringung(fall) {
-  const stationaer = fall.stationaereUnterbringung;
-  const cfg = CONFIG.stationaer;
-
-  if (!stationaer || stationaer === 'nein') {
-    return erstellePruefschritt(
-      'Stationäre Unterbringung (§ 7 Abs. 4 SGB II)',
-      ERGEBNIS.OK,
-      'Keine stationäre Unterbringung angegeben. Ausschlussgrund nach § 7 Abs. 4 SGB II liegt nicht vor.'
-    );
-  }
-
-  const dauerMonate = parseInt(fall.stationaerDauerMonate) || 0;
-
-  if (dauerMonate >= cfg.ausschlussAbMonate) {
-    return erstellePruefschritt(
-      'Stationäre Unterbringung (§ 7 Abs. 4 SGB II)',
-      ERGEBNIS.AUSSCHLUSS,
-      `Stationäre Unterbringung seit ${dauerMonate} Monaten (Ausschluss ab ${cfg.ausschlussAbMonate} Monaten). Kein Anspruch auf Bürgergeld nach § 7 Abs. 4 SGB II.`,
-      ['Nachweis über stationäre Unterbringung', 'Einweisungsbescheid / Krankenhausbestätigung']
-    );
-  }
-
-  return erstellePruefschritt(
-    'Stationäre Unterbringung (§ 7 Abs. 4 SGB II)',
-    ERGEBNIS.WARNUNG,
-    `Stationäre Unterbringung angegeben (${dauerMonate} Monate). Ausschluss erst ab ${cfg.ausschlussAbMonate} Monaten. Einzelfallprüfung empfohlen.`,
-    ['Nachweis über Art und Dauer der Unterbringung']
-  );
-}
-
-/**
- * Prüft die Hilfebedürftigkeit (§§ 9, 11, 12 SGB II).
- * @param {object} fall - Falldaten
- * @returns {object[]} - Array von Prüfschritt-Objekten
- */
-function pruefeBeduerftigkeit(fall) {
+function pruefeAufstockungBeiEltern(person) {
   const schritte = [];
-  const nettoEinkommen = parseFloat(fall.nettoEinkommen) || 0;
-  const vermoegen = parseFloat(fall.vermoegen) || 0;
-  const alter = parseInt(fall.alter) || 30;
-  const hatKinder = (parseInt(fall.anzahlKinder) || 0) > 0;
+  const rb      = CONFIG.regelbedarfe;
+  const wkp     = CONFIG.bafoegWohnkostenpauschale;
 
-  // Anzahl Personen in der BG ermitteln (vereinfacht)
-  let anzahlPersonenBG = 1;
-  if (fall.familienstand === 'verheiratet' || fall.familienstand === 'lebenspartnerschaft') {
-    anzahlPersonenBG = 2;
+  // Regelbedarf für unter-25-Jährige bei Eltern
+  const regelbedarf = rb.stufe3_unter25_beiEltern;
+
+  // Tatsächlich erhaltenes BAföG (Eingabe)
+  const bafoegBetrag = parseFloat(person.bafoegBetrag) || 0;
+
+  // Grundsatz: § 7 Abs. 6 Nr. 2 — Ausnahme vom Ausschluss
+  schritte.push(schritt(
+    'Ausnahme: Wohnen im Elternhaushalt (§ 7 Abs. 6 Nr. 2 SGB II)',
+    ERGEBNIS.INFO,
+    `Person wohnt im Haushalt der Eltern. § 7 Abs. 6 Nr. 2 SGB II kann den Ausschluss nach § 7 Abs. 5 aufheben, wenn BAföG und eigenes Einkommen den Bedarf nicht vollständig decken.`
+  ));
+
+  // BAföG-Höhe bekannt?
+  if (bafoegBetrag <= 0) {
+    schritte.push(schritt(
+      'BAföG-Betrag nicht angegeben',
+      ERGEBNIS.WARNUNG,
+      `Ohne Kenntnis des tatsächlichen BAföG-Betrags kann keine Aussage zur Aufstockungsmöglichkeit getroffen werden. Bitte BAföG-Bescheid anfordern.`,
+      ['BAföG-Bescheid (aktuell)', 'Nachweis über tatsächlich ausgezahltes BAföG']
+    ));
+    return schritte;
   }
-  anzahlPersonenBG += parseInt(fall.anzahlKinder) || 0;
 
-  // Bedarf berechnen
-  const gesamtbedarf = berechneGesamtbedarf(fall);
+  // Wohnkosten-Hinweis
+  schritte.push(schritt(
+    'BAföG-Wohnkostenpauschale bei Elternwohnung',
+    ERGEBNIS.INFO,
+    `BAföG enthält bei Wohnen im Elternhaushalt nur ${wkp.beiEltern} €/Monat Wohnkostenpauschale (§ 13 Abs. 2 Nr. 1 BAföG), statt ${wkp.eigeneMietwohnung} € bei eigener Wohnung. Dies führt häufig zu ungedecktem Bedarf.`
+  ));
 
-  // Anrechenbares Einkommen berechnen
-  const anrechenbaresEinkommen = berechneAnrechenboresEinkommen(nettoEinkommen, hatKinder);
+  // Delta berechnen
+  const delta = regelbedarf - bafoegBetrag;
 
-  // Einkommens-Prüfung
-  if (anrechenbaresEinkommen >= gesamtbedarf) {
-    schritte.push(erstellePruefschritt(
-      'Hilfebedürftigkeit: Einkommen (§ 9 Abs. 1 SGB II)',
+  if (delta <= 0) {
+    // BAföG deckt Regelbedarf vollständig
+    schritte.push(schritt(
+      'BAföG-Delta: Kein Aufstockungsbedarf',
       ERGEBNIS.AUSSCHLUSS,
-      `Anrechenbares Einkommen (${anrechenbaresEinkommen.toFixed(2)} €) deckt den Gesamtbedarf (${gesamtbedarf.toFixed(2)} €) vollständig. Keine Hilfebedürftigkeit. (Nettoeinkommen: ${nettoEinkommen} €, Freibetrag berücksichtigt)`
+      `BAföG (${bafoegBetrag.toFixed(2)} €) deckt den Regelbedarf (${regelbedarf} €, Stufe 3) vollständig. Kein Aufstockungsbedarf nach § 7 Abs. 6 Nr. 2 SGB II. Ausschluss nach § 7 Abs. 5 bleibt bestehen.`,
+      ['BAföG-Bescheid zum Nachweis']
     ));
-  } else {
-    const luecke = gesamtbedarf - anrechenbaresEinkommen;
-    schritte.push(erstellePruefschritt(
-      'Hilfebedürftigkeit: Einkommen (§ 9 Abs. 1 SGB II)',
-      ERGEBNIS.OK,
-      `Hilfebedürftigkeit durch Einkommen gegeben: Bedarf (${gesamtbedarf.toFixed(2)} €) übersteigt anrechenbares Einkommen (${anrechenbaresEinkommen.toFixed(2)} €). Unterdeckung: ca. ${luecke.toFixed(2)} €/Monat.`
-    ));
+    return schritte;
   }
 
-  // Vermögens-Prüfung
-  const vermoegensFreibetrag = berechneVermoegensfreibetrag(anzahlPersonenBG, alter);
+  // Aufstockungslücke vorhanden
+  schritte.push(schritt(
+    `BAföG-Delta: Aufstockungsbedarf ${delta.toFixed(2)} €/Monat`,
+    ERGEBNIS.WARNUNG,
+    `Regelbedarf (Stufe 3): ${regelbedarf} €/Monat. BAföG tatsächlich: ${bafoegBetrag.toFixed(2)} €/Monat. ` +
+    `Ungedeckter Bedarf: ${delta.toFixed(2)} €/Monat. ` +
+    `→ Aufstockung nach § 7 Abs. 6 Nr. 2 SGB II dem Grunde nach möglich. Einzelfallprüfung und Abstimmung mit BAföG-Amt erforderlich.`,
+    [
+      'BAföG-Bescheid (aktuell, mit ausgewiesenem Wohnkostenanteil)',
+      'Meldebescheinigung (Nachweis Wohnen bei Eltern)',
+      'Ggf. Abstimmung mit BAföG-Amt zur Anrechnung',
+      'Prüfung Kindergeld-Zuordnung (§ 11 SGB II)',
+    ]
+  ));
 
-  if (vermoegen > vermoegensFreibetrag) {
-    schritte.push(erstellePruefschritt(
-      'Hilfebedürftigkeit: Vermögen (§ 12 SGB II)',
-      ERGEBNIS.AUSSCHLUSS,
-      `Verwertbares Vermögen (${vermoegen.toFixed(2)} €) überschreitet den Freibetrag (${vermoegensFreibetrag.toFixed(2)} €). Vorrangige Vermögensverwertung erforderlich.`,
-      ['Vermögensnachweise (Kontoauszüge, Sparbücher, Depotauszüge)', 'Nachweise über geschütztes Vermögen (Altersvorsorge etc.)']
-    ));
-  } else {
-    schritte.push(erstellePruefschritt(
-      'Hilfebedürftigkeit: Vermögen (§ 12 SGB II)',
-      ERGEBNIS.OK,
-      `Vermögen (${vermoegen.toFixed(2)} €) liegt unterhalb des Freibetrags (${vermoegensFreibetrag.toFixed(2)} €) für ${anzahlPersonenBG} Person(en).`,
-      ['Vermögensnachweise zum Nachweis der Hilfebedürftigkeit vorlegen']
-    ));
-  }
+  // Hinweis auf Darlehensform (§ 27 SGB II)
+  schritte.push(schritt(
+    'Form der Leistung: Darlehen oder Zuschuss (§ 27 SGB II)',
+    ERGEBNIS.INFO,
+    'Ergänzende Leistungen für Studierende nach § 7 Abs. 6 Nr. 2 SGB II werden in der Regel als Darlehen nach § 27 Abs. 3 SGB II gewährt, nicht als Zuschuss. Ausnahme: Härtefall nach § 27 Abs. 4 SGB II.'
+  ));
 
   return schritte;
 }
 
 // ============================================================
-//  HAUPTFUNKTION
+//  MODUL 4: AUFENTHALTSRECHT EU-BÜRGER (§ 7 Abs. 1 S. 2 SGB II)
+// ============================================================
+
+function pruefeAufenthaltsrecht(person) {
+  const schritte = [];
+  const staatsangehoerigkeit = person.staatsangehoerigkeit;
+
+  // Deutsche → keine freizügigkeitsrechtliche Prüfung
+  if (staatsangehoerigkeit === 'deutschland') {
+    schritte.push(schritt(
+      'Aufenthaltsrecht (§ 7 Abs. 1 S. 2 SGB II)',
+      ERGEBNIS.OK,
+      'Deutsche Staatsangehörige unterliegen keinen aufenthaltsrechtlichen Einschränkungen.'
+    ));
+    return schritte;
+  }
+
+  // Drittstaatangehörige
+  if (staatsangehoerigkeit === 'drittstaat') {
+    schritte.push(schritt(
+      'Aufenthaltsrecht — Drittstaatangehöriger',
+      ERGEBNIS.WARNUNG,
+      'Bei Drittstaatangehörigen ist der konkrete Aufenthaltstitel maßgeblich. Ausschlüsse nach § 7 Abs. 1 S. 2 Nr. 3 SGB II i. V. m. § 8 Abs. 2 AufenthG prüfen.',
+      ['Aufenthaltstitel / Niederlassungserlaubnis', CONFIG.hinweise.auslaenderbehoerde]
+    ));
+    return schritte;
+  }
+
+  // ---- EU-Bürger ----
+  const cfg = CONFIG.aufenthaltsrecht;
+  const aufenthaltMonate  = parseInt(person.aufenthaltsdauerMonate) || 0;
+  const status            = person.aufenthaltsStatus;
+  const wochenstunden     = parseFloat(person.wochenstunden) || 0;
+  const bruttoEinkommen   = parseFloat(person.bruttoEinkommen) || 0;
+  const istUnbefristet    = person.istUnbefristet === true;
+
+  // Daueraufenthaltsrecht nach 5 Jahren?
+  if (aufenthaltMonate >= cfg.daueraufenthaltsrechtMonate) {
+    schritte.push(schritt(
+      'Daueraufenthaltsrecht (§ 4a FreizügG/EU)',
+      ERGEBNIS.OK,
+      `Aufenthaltsdauer (${aufenthaltMonate} Monate) überschreitet die 5-Jahres-Grenze (${cfg.daueraufenthaltsrechtMonate} Monate). Freizügigkeitsrechtliche Einschränkungen entfallen.`,
+      ['Nachweis der 5-jährigen rechtmäßigen Aufenthaltsdauer (z. B. § 5-Bescheinigung FreizügG/EU)']
+    ));
+    return schritte;
+  }
+
+  // Erste 3 Monate ohne Arbeitnehmerstatus
+  if (aufenthaltMonate < cfg.sperrfristMonate &&
+      status !== 'arbeitnehmer' && status !== 'selbststaendig') {
+    schritte.push(schritt(
+      `Sperrfrist erste ${cfg.sperrfristMonate} Monate (§ 7 Abs. 1 S. 2 Nr. 1 SGB II)`,
+      ERGEBNIS.AUSSCHLUSS,
+      `Person hält sich erst ${aufenthaltMonate} Monat(e) in Deutschland auf. In den ersten ${cfg.sperrfristMonate} Monaten besteht ohne Arbeitnehmerstatus kein Anspruch auf Bürgergeld.`
+    ));
+    return schritte;
+  }
+
+  // ---- Status: Arbeitnehmer ----
+  if (status === 'arbeitnehmer') {
+    const ausreichendStunden   = wochenstunden >= cfg.mindestStundenArbeitnehmer;
+    const ausreichendEinkommen = bruttoEinkommen >= cfg.mindestEinkommenArbeitnehmer;
+
+    if (ausreichendStunden && ausreichendEinkommen) {
+      schritte.push(schritt(
+        'Arbeitnehmerstatus (§ 2 Abs. 2 Nr. 1 FreizügG/EU)',
+        ERGEBNIS.OK,
+        `Arbeitnehmerstatus plausibel: ${wochenstunden} Std./Woche, ${bruttoEinkommen} € brutto/Monat (Mindestgrenzen: ${cfg.mindestStundenArbeitnehmer} Std. / ${cfg.mindestEinkommenArbeitnehmer} €).`,
+        ['Arbeitsvertrag', 'Gehaltsabrechnungen (letzte 3 Monate)', 'Kontoauszüge']
+      ));
+    } else {
+      schritte.push(schritt(
+        'Arbeitnehmerstatus fraglich (§ 2 Abs. 2 Nr. 1 FreizügG/EU)',
+        ERGEBNIS.WARNUNG,
+        `Nur ${wochenstunden} Std./Woche und/oder ${bruttoEinkommen} € brutto/Monat. Prüfen ob Tätigkeit "tatsächlich und echt" ist (EuGH-Rs. Levin). Ggf. kein qualifizierter Arbeitnehmerstatus.`,
+        ['Arbeitsvertrag', 'Gehaltsabrechnungen', 'Kontoauszüge', 'Ggf. Stellungnahme Arbeitgeber']
+      ));
+    }
+
+    if (!istUnbefristet) {
+      schritte.push(schritt(
+        'Nachwirkender Arbeitnehmerstatus bei Befristung',
+        ERGEBNIS.INFO,
+        'Bei befristeter Tätigkeit: Nach Ende bleibt Arbeitnehmerstatus für 6 weitere Monate erhalten, wenn Arbeit unfreiwillig aufgegeben wurde (§ 2 Abs. 3 Nr. 2 FreizügG/EU).'
+      ));
+    }
+    return schritte;
+  }
+
+  // ---- Status: Selbstständig ----
+  if (status === 'selbststaendig') {
+    schritte.push(schritt(
+      'Selbstständigkeit (§ 2 Abs. 2 Nr. 2 FreizügG/EU)',
+      ERGEBNIS.WARNUNG,
+      'Selbstständige EU-Bürger sind grundsätzlich freizügigkeitsberechtigt. Tatsächliche Ausübung ist zu belegen.',
+      ['Gewerbeanmeldung oder Handelsregistereintrag', 'Steuerbescheid / EÜR', 'Kontoauszüge']
+    ));
+    return schritte;
+  }
+
+  // ---- Status: Arbeitsuchend ----
+  if (status === 'arbeitsuchend') {
+    if (aufenthaltMonate > cfg.arbeitssucheMaxMonate) {
+      schritte.push(schritt(
+        'Aufenthaltsrecht als Arbeitsuchender — Nachweisfrist überschritten',
+        ERGEBNIS.WARNUNG,
+        `Aufenthalt als Arbeitsuchender dauert bereits ${aufenthaltMonate} Monate (Grenze: ${cfg.arbeitssucheMaxMonate} Monate). Ohne Nachweis ernsthafter Bemühungen kann das Aufenthaltsrecht erlöschen.`,
+        ['Bewerbungsunterlagen', 'Nachweise Arbeitssuchend-Meldung', CONFIG.hinweise.auslaenderbehoerde]
+      ));
+    } else {
+      schritte.push(schritt(
+        'Aufenthaltsrecht als Arbeitsuchender (§ 2 Abs. 2 Nr. 1a FreizügG/EU)',
+        ERGEBNIS.AUSSCHLUSS,
+        `Kein Anspruch auf Bürgergeld nach § 7 Abs. 1 S. 2 Nr. 2 SGB II für Arbeitsuchende ohne Vorerwerbstätigkeit in Deutschland.`,
+        [CONFIG.hinweise.auslaenderbehoerde, 'Nachweis über Vorerwerbstätigkeit in Deutschland']
+      ));
+    }
+    return schritte;
+  }
+
+  // ---- Status: Familienangehöriger ----
+  if (status === 'familienangehoerig') {
+    schritte.push(schritt(
+      'Aufenthaltsrecht als Familienangehöriger (§ 3 FreizügG/EU)',
+      ERGEBNIS.WARNUNG,
+      'Aufenthaltsrecht leitet sich vom stammberechtigten EU-Bürger ab. Prüfen: Besteht dessen Freizügigkeitsrecht fort? Ggf. Ausschluss nach § 7 Abs. 1 S. 2 Nr. 2 SGB II.',
+      ['Nachweis Familienbeziehung (Heiratsurkunde, Geburtsurkunde)', 'Aufenthaltsstatus des stammberechtigten EU-Bürgers', CONFIG.hinweise.auslaenderbehoerde]
+    ));
+    return schritte;
+  }
+
+  // Unklar
+  schritte.push(schritt(
+    'Aufenthaltsrecht (Status nicht zuordenbar)',
+    ERGEBNIS.WARNUNG,
+    'Aufenthaltsstatus nicht eindeutig. Einzelfallprüfung erforderlich.',
+    [CONFIG.hinweise.auslaenderbehoerde]
+  ));
+  return schritte;
+}
+
+// ============================================================
+//  HAUPTFUNKTION: Einzelperson prüfen
 // ============================================================
 
 /**
- * Führt die vollständige Prüfung nach § 7 SGB II durch.
- * @param {object} fall - Alle Eingabedaten aus dem Formular
- * @returns {object} - Gesamtergebnis mit allen Prüfschritten und Ampelstatus
+ * Prüft eine einzelne Person der BG.
+ * @param {object} person - Personendaten aus dem Formular
+ * @returns {object} - { pruefschritte, ampelStatus, ampelText, alleNachweise }
  */
-function pruefeFallGesamt(fall) {
-  const allePruefschritte = [];
+function pruefePerson(person) {
+  const pruefschritte = [];
 
-  // 1. Altersvoraussetzung
-  allePruefschritte.push(pruefeAlter(fall));
+  // 1. Alter
+  pruefschritte.push(pruefeAlter(person));
 
   // 2. Erwerbsfähigkeit
-  allePruefschritte.push(pruefeErwerbsfaehigkeit(fall));
+  pruefschritte.push(pruefeErwerbsfaehigkeit(person));
 
-  // 3. Aufenthaltsrecht (nur bei EU- oder Drittstaatler relevant)
-  if (fall.staatsangehoerigkeit && fall.staatsangehoerigkeit !== 'deutschland') {
-    const aufenthaltsschritte = pruefeAufenthaltsrecht(fall);
-    allePruefschritte.push(...aufenthaltsschritte);
-  } else if (fall.staatsangehoerigkeit === 'deutschland') {
-    allePruefschritte.push(...pruefeAufenthaltsrecht(fall));
+  // 3. EU-Bürger-Prüfung (wenn aktiviert)
+  if (person.pruefungEU) {
+    pruefschritte.push(...pruefeAufenthaltsrecht(person));
   }
 
-  // 4. BAföG-Ausschluss (nur wenn Ausbildung angegeben)
-  if (fall.inAusbildung === 'ja') {
-    allePruefschritte.push(pruefeBafoegAusschluss(fall));
+  // 4. BAföG-Prüfung (wenn aktiviert)
+  if (person.pruefungBafoeg) {
+    pruefschritte.push(...pruefeBafoeg(person));
   }
 
-  // 5. Stationäre Unterbringung
-  allePruefschritte.push(pruefeStationaereUnterbringung(fall));
+  // Ampelstatus ermitteln
+  const hatAusschluss = pruefschritte.some(s => s.ergebnis === ERGEBNIS.AUSSCHLUSS);
+  const hatWarnung    = pruefschritte.some(s => s.ergebnis === ERGEBNIS.WARNUNG);
 
-  // 6. Hilfebedürftigkeit
-  const beduerftigkeitsschritte = pruefeBeduerftigkeit(fall);
-  allePruefschritte.push(...beduerftigkeitsschritte);
-
-  // Gesamtergebnis ermitteln (Ampel)
-  const hatAusschluss = allePruefschritte.some(s => s.ergebnis === ERGEBNIS.AUSSCHLUSS);
-  const hatWarnung = allePruefschritte.some(s => s.ergebnis === ERGEBNIS.WARNUNG);
-
-  let ampelStatus;
-  let ampelText;
-  let ampelBeschreibung;
-
+  let ampelStatus, ampelText;
   if (hatAusschluss) {
     ampelStatus = 'rot';
-    ampelText = 'Ausschluss wahrscheinlich';
-    ampelBeschreibung = 'Es wurden ein oder mehrere Ausschlussgründe nach § 7 SGB II festgestellt. Ein Leistungsanspruch besteht voraussichtlich nicht. Bitte alle Punkte sorgfältig prüfen.';
+    ampelText   = 'Ausschluss wahrscheinlich';
   } else if (hatWarnung) {
     ampelStatus = 'gelb';
-    ampelText = 'Weitere Prüfung erforderlich';
-    ampelBeschreibung = 'Es bestehen ungeklärte Punkte oder Graubereiche. Eine abschließende Entscheidung ist erst nach vollständiger Sachverhaltsaufklärung möglich.';
+    ampelText   = 'Weitere Prüfung erforderlich';
   } else {
     ampelStatus = 'gruen';
-    ampelText = 'Anspruch wahrscheinlich';
-    ampelBeschreibung = 'Die geprüften Voraussetzungen nach § 7 SGB II sind voraussichtlich erfüllt. Bitte alle erforderlichen Nachweise anfordern und die formelle Antragsprüfung abschließen.';
+    ampelText   = 'Kein Ausschlussgrund festgestellt';
   }
 
-  // Alle benötigten Nachweise zusammenstellen (dedupliziert)
-  const alleNachweise = [...new Set(
-    allePruefschritte.flatMap(s => s.nachweise || [])
-  )];
+  const alleNachweise = [...new Set(pruefschritte.flatMap(s => s.nachweise || []))];
 
-  return {
-    ampelStatus,
-    ampelText,
-    ampelBeschreibung,
-    pruefschritte: allePruefschritte,
-    alleNachweise,
-    rechtsstandHinweis: CONFIG.hinweise.rechtsstandHinweis,
-    pruefzeitpunkt: new Date().toLocaleString('de-DE'),
-  };
+  return { pruefschritte, ampelStatus, ampelText, alleNachweise };
 }
 
-// Globale Verfügbarkeit für main.js
-window.pruefeFallGesamt = pruefeFallGesamt;
-window.ERGEBNIS = ERGEBNIS;
+/**
+ * Prüft alle Personen der Bedarfsgemeinschaft.
+ * @param {object[]} personen - Array von Personendaten
+ * @returns {object[]} - Array von Einzelergebnissen
+ */
+function pruefeBedarfsgemeinschaft(personen) {
+  return personen.map(person => ({
+    person,
+    ergebnis: pruefePerson(person),
+  }));
+}
+
+// Globale Verfügbarkeit
+window.pruefePerson            = pruefePerson;
+window.pruefeBedarfsgemeinschaft = pruefeBedarfsgemeinschaft;
+window.ERGEBNIS                = ERGEBNIS;

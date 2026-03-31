@@ -1,472 +1,618 @@
 /**
  * ============================================================
- *  SGB II Prüfassistent — Haupt-UI-Logik
- *  main.js
+ *  SGB II Prüfassistent v2 — main.js
  *
- *  Zuständig für:
- *  - Falltyp-Auswahl und dynamisches Einblenden von Feldern
- *  - Formulardaten lesen und aufbereiten
- *  - Prüfung anstoßen (via rule-engine.js)
- *  - Ergebnis rendern (Ampel, Prüfschritte, Vermerk)
- *  - Prüfvermerk-Text generieren und kopieren
+ *  Ablauf:
+ *  1. Bedarfsgemeinschaft erfassen (Personen hinzufügen)
+ *  2. Je Person: Prüftypen wählen (EU / Studierend)
+ *     und die jeweiligen Felder ausfüllen
+ *  3. Prüfung starten → Ergebnis je Person
  * ============================================================
  */
 
-// Warte bis DOM vollständig geladen
 document.addEventListener('DOMContentLoaded', () => {
 
   // ----------------------------------------------------------
-  // FALLTYP-KONFIGURATION
+  // Zustand
   // ----------------------------------------------------------
-
-  /** Definiert, welche Sektionen bei welchem Falltyp sichtbar sind */
-  const FALLTYPEN = {
-    allgemein: {
-      label: 'Allgemein',
-      icon: '📋',
-      sektionen: ['s-allgemein', 's-einkommen-vermoegen'],
-    },
-    eu_buerger: {
-      label: 'EU-Bürger',
-      icon: '🇪🇺',
-      sektionen: ['s-allgemein', 's-eu', 's-einkommen-vermoegen'],
-    },
-    studierender: {
-      label: 'Studierender',
-      icon: '🎓',
-      sektionen: ['s-allgemein', 's-bafoeg', 's-einkommen-vermoegen'],
-    },
-    gemischt: {
-      label: 'Gemischt',
-      icon: '👨‍👩‍👧',
-      sektionen: ['s-allgemein', 's-eu', 's-bafoeg', 's-einkommen-vermoegen'],
-    },
-  };
-
-  // Aktueller Falltyp
-  let aktiverFalltyp = null;
+  let personen = [];    // Array der erfassten BG-Personen
+  let personenZaehler = 0; // fortlaufende ID
 
   // ----------------------------------------------------------
-  // DOM-REFERENZEN
+  // DOM-Referenzen
   // ----------------------------------------------------------
+  const personenListeEl   = document.getElementById('personen-liste');
+  const btnPersonHinzu    = document.getElementById('btn-person-hinzufuegen');
+  const btnPruefen        = document.getElementById('btn-pruefen');
+  const btnNeuePruefung   = document.getElementById('btn-neue-pruefung');
+  const bgErfassungSection = document.getElementById('bg-erfassung');
+  const ergebnisSection   = document.getElementById('ergebnis-section');
+  const ergebnisInhalt    = document.getElementById('ergebnis-inhalt');
+  const toast             = document.getElementById('toast');
 
-  const falltypBtns     = document.querySelectorAll('.falltyp-btn');
-  const sektionenAlle   = document.querySelectorAll('.sektion[data-sektion]');
-  const eingabeBereich  = document.getElementById('eingabe-bereich');
-  const btnPruefen      = document.getElementById('btn-pruefen');
-  const ergebnisBereich = document.getElementById('ergebnis-bereich');
-  const toast           = document.getElementById('toast');
-
-  // EU-bedingte Felder
-  const statusFeld           = document.getElementById('aufenthalts-status');
-  const erwerbsFelder        = document.getElementById('erwerbs-felder');
-  const staatsangehoerigkeitFeld = document.getElementById('staatsangehoerigkeit');
-
-  // BAföG-bedingte Felder
-  const ausbildungJaNein     = document.querySelectorAll('input[name="inAusbildung"]');
-  const bafoegDetails        = document.getElementById('bafoeg-details');
-  const ausbildungsartFeld   = document.getElementById('ausbildungsart');
-  const bafoegFoerderfaehigFeld = document.getElementById('bafoegFoerderfaehig');
-  const bafoegAutoHinweis    = document.getElementById('bafoeg-auto-hinweis');
+  // Schritt-Tabs
+  const tabBG       = document.getElementById('tab-bg');
+  const tabErgebnis = document.getElementById('tab-ergebnis');
 
   // ----------------------------------------------------------
-  // FALLTYP-AUSWAHL
+  // Rollen-Optionen für BG-Mitglieder
+  // ----------------------------------------------------------
+  const ROLLEN = [
+    { value: 'antragsteller',    label: 'Antragsteller/in' },
+    { value: 'partner',          label: 'Partner/in' },
+    { value: 'kind_minderjaehrig', label: 'Kind (minderjährig)' },
+    { value: 'kind_volljährig',  label: 'Kind (volljährig, in BG)' },
+    { value: 'sonstiges',        label: 'Sonstiges BG-Mitglied' },
+  ];
+
+  // ----------------------------------------------------------
+  // PERSON HINZUFÜGEN
   // ----------------------------------------------------------
 
-  falltypBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const typ = btn.dataset.typ;
-      aktiverFalltyp = typ;
+  btnPersonHinzu.addEventListener('click', () => {
+    personenZaehler++;
+    const id = personenZaehler;
 
-      // Buttons aktualisieren
-      falltypBtns.forEach(b => b.classList.toggle('aktiv', b.dataset.typ === typ));
+    const person = {
+      id,
+      name: '',
+      rolle: '',
+      alter: '',
+      erwerbsfaehigkeit: '',
+      pruefungEU: false,
+      pruefungBafoeg: false,
+      // EU-Felder
+      staatsangehoerigkeit: '',
+      aufenthaltsdauerMonate: '',
+      aufenthaltsStatus: '',
+      wochenstunden: '',
+      bruttoEinkommen: '',
+      istUnbefristet: false,
+      // BAföG-Felder
+      inAusbildung: 'nein',
+      ausbildungsart: '',
+      ausbildungsartLabel: '',
+      bafoegFoerderfaehig: 'auto',
+      ausbildungsStatus: '',
+      wohntBeiEltern: false,
+      bafoegBetrag: '',
+    };
 
-      // Sektionen anzeigen/verstecken
-      const sichtbareSektionen = FALLTYPEN[typ].sektionen;
-      sektionenAlle.forEach(s => {
-        s.classList.toggle('versteckt', !sichtbareSektionen.includes(s.dataset.sektion));
-      });
-
-      // Eingabebereich einblenden
-      eingabeBereich.classList.remove('versteckt');
-
-      // Vorheriges Ergebnis ausblenden
-      ergebnisBereich.classList.remove('sichtbar');
-
-      // Smooth scroll zum Formular
-      eingabeBereich.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
+    personen.push(person);
+    renderePersonenListe();
   });
 
   // ----------------------------------------------------------
-  // DYNAMISCHE FELDER: EU-Bürger
+  // PERSON ENTFERNEN
   // ----------------------------------------------------------
 
-  if (statusFeld) {
-    statusFeld.addEventListener('change', () => {
-      const wert = statusFeld.value;
-      const zeigeErwerb = (wert === 'arbeitnehmer' || wert === 'selbststaendig');
-      erwerbsFelder.classList.toggle('versteckt', !zeigeErwerb);
-    });
-  }
-
-  if (staatsangehoerigkeitFeld) {
-    staatsangehoerigkeitFeld.addEventListener('change', () => {
-      const wert = staatsangehoerigkeitFeld.value;
-      const euSektion = document.getElementById('eu-details');
-      if (euSektion) {
-        euSektion.classList.toggle('versteckt', wert === 'deutschland');
-      }
-    });
+  function entfernePerson(id) {
+    personen = personen.filter(p => p.id !== id);
+    renderePersonenListe();
   }
 
   // ----------------------------------------------------------
-  // DYNAMISCHE FELDER: BAföG
+  // PERSONEN-LISTE RENDERN
   // ----------------------------------------------------------
 
-  ausbildungJaNein.forEach(radio => {
-    radio.addEventListener('change', () => {
-      const istJa = document.querySelector('input[name="inAusbildung"]:checked')?.value === 'ja';
-      if (bafoegDetails) bafoegDetails.classList.toggle('versteckt', !istJa);
-    });
-  });
+  function renderePersonenListe() {
+    personenListeEl.innerHTML = '';
 
-  // Automatische BAföG-Förderfähigkeit ermitteln
-  if (ausbildungsartFeld) {
-    ausbildungsartFeld.addEventListener('change', () => {
-      const art = ausbildungsartFeld.value;
-      const cfg = window.CONFIG?.bafoeg;
-      if (!cfg) return;
-
-      let empfehlung = '';
-      if (cfg.foerderfaehigeAusbildungsarten.includes(art)) {
-        empfehlung = 'ja';
-        if (bafoegAutoHinweis) bafoegAutoHinweis.textContent = '✓ Automatisch: BAföG-förderfähig';
-      } else if (cfg.nichtFoerderfaehigeAusbildungsarten.includes(art)) {
-        empfehlung = 'nein';
-        if (bafoegAutoHinweis) bafoegAutoHinweis.textContent = '✗ Automatisch: Nicht BAföG-förderfähig';
-      } else {
-        empfehlung = 'unklar';
-        if (bafoegAutoHinweis) bafoegAutoHinweis.textContent = '? Bitte manuell prüfen';
-      }
-
-      // Automatisch vorauswählen, wenn noch nicht manuell geändert
-      if (bafoegFoerderfaehigFeld && bafoegFoerderfaehigFeld.dataset.manuell !== 'ja') {
-        bafoegFoerderfaehigFeld.value = empfehlung;
-      }
-    });
-
-    // Manuelle Änderung merken
-    if (bafoegFoerderfaehigFeld) {
-      bafoegFoerderfaehigFeld.addEventListener('change', () => {
-        bafoegFoerderfaehigFeld.dataset.manuell = 'ja';
-      });
+    if (personen.length === 0) {
+      personenListeEl.innerHTML = `
+        <div style="padding:20px;text-align:center;color:var(--grau-500);font-size:0.88rem;">
+          Noch keine Person erfasst. Klicken Sie auf „Person hinzufügen".
+        </div>`;
+      return;
     }
+
+    personen.forEach((person, index) => {
+      const el = erstellePersonKarte(person, index + 1);
+      personenListeEl.appendChild(el);
+    });
   }
 
   // ----------------------------------------------------------
-  // FORMULARDATEN LESEN
+  // PERSONENKARTE ERSTELLEN
   // ----------------------------------------------------------
 
-  /**
-   * Liest alle Formularwerte und gibt ein strukturiertes Falldaten-Objekt zurück.
-   * @returns {object}
-   */
-  function leseFalldaten() {
-    const val = (id) => {
-      const el = document.getElementById(id);
-      return el ? el.value.trim() : '';
-    };
+  function erstellePersonKarte(person, nummer) {
+    const div = document.createElement('div');
+    div.className = 'person-karte';
+    div.dataset.id = person.id;
 
-    const checked = (id) => {
-      const el = document.getElementById(id);
-      return el ? el.checked : false;
-    };
+    // Kurzbezeichnung für den Header
+    const kurzName = person.name || `Person ${nummer}`;
+    const rolleLabel = ROLLEN.find(r => r.value === person.rolle)?.label || 'Rolle auswählen';
 
-    const radioVal = (name) => {
-      const el = document.querySelector(`input[name="${name}"]:checked`);
-      return el ? el.value : null;
-    };
+    div.innerHTML = `
+      <div class="person-header" data-id="${person.id}">
+        <div class="person-header-links">
+          <div class="person-index">${nummer}</div>
+          <div>
+            <div class="person-name-kurzinfo">${escHTML(kurzName)}</div>
+            <div class="person-rolle-tag">${escHTML(rolleLabel)}</div>
+          </div>
+        </div>
+        <button class="btn-person-loeschen" type="button" data-id="${person.id}">
+          ✕ Entfernen
+        </button>
+      </div>
 
-    // BAföG-Förderfähigkeit
-    let bafoegFoerderfaehig = val('bafoegFoerderfaehig');
-    if (bafoegFoerderfaehig === 'ja') bafoegFoerderfaehig = true;
-    else if (bafoegFoerderfaehig === 'nein') bafoegFoerderfaehig = false;
-    else bafoegFoerderfaehig = 'unklar';
+      <div class="person-felder">
+        <div class="felder-grid">
 
-    return {
-      // Allgemein
-      alter:              val('alter'),
-      familienstand:      val('familienstand'),
-      anzahlKinder:       val('anzahlKinder'),
-      erwerbsfaehigkeit:  val('erwerbsfaehigkeit'),
+          <div class="feld">
+            <label>Name / Bezeichnung</label>
+            <input type="text" placeholder="z. B. Max Mustermann"
+              data-feld="name" data-id="${person.id}" value="${escHTML(person.name)}" />
+          </div>
 
-      // EU-Bürger
-      staatsangehoerigkeit:   val('staatsangehoerigkeit'),
-      aufenthaltsdauerMonate: val('aufenthaltsdauerMonate'),
-      aufenthaltsStatus:      val('aufenthalts-status'),
-      wochenstunden:          val('wochenstunden'),
-      bruttoEinkommen:        val('bruttoEinkommen'),
-      istUnbefristet:         checked('istUnbefristet'),
+          <div class="feld">
+            <label>Rolle in der BG</label>
+            <select data-feld="rolle" data-id="${person.id}">
+              <option value="">— bitte wählen —</option>
+              ${ROLLEN.map(r => `<option value="${r.value}" ${person.rolle === r.value ? 'selected' : ''}>${r.label}</option>`).join('')}
+            </select>
+          </div>
 
-      // Nachweise EU
-      nachweis_arbeitsvertrag:  checked('nachweis-arbeitsvertrag'),
-      nachweis_kontoauszuege:   checked('nachweis-kontoauszuege'),
-      nachweis_meldung:         checked('nachweis-meldung'),
+          <div class="feld">
+            <label>Alter (Jahre)</label>
+            <input type="number" min="0" max="120" placeholder="z. B. 24"
+              data-feld="alter" data-id="${person.id}" value="${person.alter}" />
+          </div>
 
-      // BAföG
-      inAusbildung:       radioVal('inAusbildung'),
-      ausbildungsart:     val('ausbildungsart'),
-      bafoegFoerderfaehig,
-      ausbildungsStatus:  val('ausbildungsStatus'),
+          <div class="feld">
+            <label>Erwerbsfähigkeit</label>
+            <select data-feld="erwerbsfaehigkeit" data-id="${person.id}">
+              <option value="">— bitte wählen —</option>
+              <option value="ja"            ${person.erwerbsfaehigkeit === 'ja' ? 'selected':''}>Ja (mind. 3 Std./Tag)</option>
+              <option value="eingeschraenkt" ${person.erwerbsfaehigkeit === 'eingeschraenkt' ? 'selected':''}>Eingeschränkt</option>
+              <option value="nein"           ${person.erwerbsfaehigkeit === 'nein' ? 'selected':''}>Nein</option>
+            </select>
+          </div>
 
-      // Einkommen & Vermögen
-      nettoEinkommen:             val('nettoEinkommen'),
-      vermoegen:                  val('vermoegen'),
-      stationaereUnterbringung:   radioVal('stationaer'),
-    };
+        </div>
+
+        <hr style="margin:14px 0;" />
+
+        <!-- Prüfungsauswahl -->
+        <div>
+          <label style="font-size:0.83rem;font-weight:700;color:var(--grau-700);display:block;margin-bottom:8px;">
+            Welche Prüfungen sollen durchgeführt werden?
+          </label>
+          <div class="pruefung-auswahl">
+            <label class="pruefung-toggle">
+              <input type="checkbox" data-feld="pruefungEU" data-id="${person.id}"
+                ${person.pruefungEU ? 'checked' : ''} />
+              🇪🇺 EU-Bürger-Prüfung
+            </label>
+            <label class="pruefung-toggle">
+              <input type="checkbox" data-feld="pruefungBafoeg" data-id="${person.id}"
+                ${person.pruefungBafoeg ? 'checked' : ''} />
+              🎓 Studierenden-Prüfung
+            </label>
+          </div>
+        </div>
+
+        <!-- EU-Detail-Felder -->
+        <div class="detail-bereich ${person.pruefungEU ? 'offen' : ''}" data-detail="eu" data-id="${person.id}">
+          <div class="felder-grid mt14">
+
+            <div class="feld">
+              <label>Staatsangehörigkeit</label>
+              <select data-feld="staatsangehoerigkeit" data-id="${person.id}">
+                <option value="">— bitte wählen —</option>
+                <option value="deutschland"  ${person.staatsangehoerigkeit === 'deutschland'  ? 'selected':''}>Deutschland</option>
+                <option value="eu"           ${person.staatsangehoerigkeit === 'eu'           ? 'selected':''}>EU-Staat</option>
+                <option value="drittstaat"   ${person.staatsangehoerigkeit === 'drittstaat'   ? 'selected':''}>Drittstaat</option>
+              </select>
+            </div>
+
+            <div class="feld">
+              <label>Aufenthaltsdauer in Deutschland</label>
+              <input type="number" min="0" placeholder="z. B. 8"
+                data-feld="aufenthaltsdauerMonate" data-id="${person.id}"
+                value="${person.aufenthaltsdauerMonate}" />
+              <span class="feld-hint">In Monaten</span>
+            </div>
+
+            <div class="feld">
+              <label>Aufenthaltsstatus / Freizügigkeitsgrund</label>
+              <select data-feld="aufenthaltsStatus" data-id="${person.id}">
+                <option value="">— bitte wählen —</option>
+                <option value="arbeitnehmer"      ${person.aufenthaltsStatus === 'arbeitnehmer'      ? 'selected':''}>Arbeitnehmer/in</option>
+                <option value="selbststaendig"    ${person.aufenthaltsStatus === 'selbststaendig'    ? 'selected':''}>Selbstständig</option>
+                <option value="arbeitsuchend"     ${person.aufenthaltsStatus === 'arbeitsuchend'     ? 'selected':''}>Arbeitsuchend</option>
+                <option value="familienangehoerig" ${person.aufenthaltsStatus === 'familienangehoerig' ? 'selected':''}>Familienangehöriger EU-Bürger</option>
+                <option value="sonstiges"         ${person.aufenthaltsStatus === 'sonstiges'         ? 'selected':''}>Sonstiges</option>
+              </select>
+            </div>
+
+          </div>
+
+          <!-- Erwerbstätigkeit (nur bei Arbeitnehmer/Selbstständig) -->
+          <div class="felder-grid mt14 ${(person.aufenthaltsStatus === 'arbeitnehmer' || person.aufenthaltsStatus === 'selbststaendig') ? '' : 'versteckt'}"
+               data-erwerb="${person.id}">
+            <div class="feld">
+              <label>Wochenstunden</label>
+              <input type="number" min="0" max="60" step="0.5" placeholder="z. B. 20"
+                data-feld="wochenstunden" data-id="${person.id}"
+                value="${person.wochenstunden}" />
+              <span class="feld-hint">Stunden/Woche</span>
+            </div>
+            <div class="feld">
+              <label>Bruttoeinkommen</label>
+              <input type="number" min="0" step="1" placeholder="z. B. 1200"
+                data-feld="bruttoEinkommen" data-id="${person.id}"
+                value="${person.bruttoEinkommen}" />
+              <span class="feld-hint">Euro/Monat</span>
+            </div>
+            <div class="feld">
+              <label style="visibility:hidden;">.</label>
+              <label class="checkbox-zeile">
+                <input type="checkbox" data-feld="istUnbefristet" data-id="${person.id}"
+                  ${person.istUnbefristet ? 'checked':''} />
+                <span>Tätigkeit ist unbefristet</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- BAföG-Detail-Felder -->
+        <div class="detail-bereich ${person.pruefungBafoeg ? 'offen' : ''}" data-detail="bafoeg" data-id="${person.id}">
+          <div class="felder-grid mt14">
+
+            <div class="feld breit">
+              <label>In Ausbildung / Studium?</label>
+              <div class="radio-gruppe">
+                <label class="radio-item">
+                  <input type="radio" name="inAusbildung_${person.id}" value="ja"
+                    data-feld="inAusbildung" data-id="${person.id}"
+                    ${person.inAusbildung === 'ja' ? 'checked':''} />
+                  <span>Ja</span>
+                </label>
+                <label class="radio-item">
+                  <input type="radio" name="inAusbildung_${person.id}" value="nein"
+                    data-feld="inAusbildung" data-id="${person.id}"
+                    ${person.inAusbildung !== 'ja' ? 'checked':''} />
+                  <span>Nein</span>
+                </label>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Ausbildungsdetails (nur wenn ja) -->
+          <div class="felder-grid mt14 ${person.inAusbildung === 'ja' ? '':'versteckt'}"
+               data-ausbildung="${person.id}">
+            <div class="feld">
+              <label>Art der Ausbildung</label>
+              <select data-feld="ausbildungsart" data-id="${person.id}">
+                <option value="">— bitte wählen —</option>
+                <option value="vollzeitstudium"    ${person.ausbildungsart === 'vollzeitstudium'    ? 'selected':''}>Vollzeitstudium (Uni / FH)</option>
+                <option value="teilzeitstudium"    ${person.ausbildungsart === 'teilzeitstudium'    ? 'selected':''}>Teilzeitstudium</option>
+                <option value="ausbildung_dual"    ${person.ausbildungsart === 'ausbildung_dual'    ? 'selected':''}>Ausbildung (dual)</option>
+                <option value="ausbildung_schulisch" ${person.ausbildungsart === 'ausbildung_schulisch' ? 'selected':''}>Ausbildung (schulisch)</option>
+                <option value="abendgymnasium"     ${person.ausbildungsart === 'abendgymnasium'     ? 'selected':''}>Abendgymnasium / Abendschule</option>
+              </select>
+            </div>
+
+            <div class="feld">
+              <label>
+                BAföG-Förderfähigkeit
+                <span class="auto-tag" data-autotag="${person.id}">auto</span>
+              </label>
+              <select data-feld="bafoegFoerderfaehig" data-id="${person.id}">
+                <option value="auto"  ${person.bafoegFoerderfaehig === 'auto'  ? 'selected':''}>Automatisch ermitteln</option>
+                <option value="ja"   ${person.bafoegFoerderfaehig === 'ja'    ? 'selected':''}>Ja (förderfähig)</option>
+                <option value="nein" ${person.bafoegFoerderfaehig === 'nein'  ? 'selected':''}>Nein (nicht förderfähig)</option>
+              </select>
+            </div>
+
+            <div class="feld">
+              <label>Aktueller Ausbildungsstatus</label>
+              <select data-feld="ausbildungsStatus" data-id="${person.id}">
+                <option value="">— bitte wählen —</option>
+                <option value="immatrikuliert"    ${person.ausbildungsStatus === 'immatrikuliert'    ? 'selected':''}>Immatrikuliert / in Ausbildung</option>
+                <option value="beurlaubt"         ${person.ausbildungsStatus === 'beurlaubt'         ? 'selected':''}>Beurlaubt</option>
+                <option value="krank_schwanger"   ${person.ausbildungsStatus === 'krank_schwanger'   ? 'selected':''}>Krank / Schwangerschaft</option>
+                <option value="bafoeg_ausstehend" ${person.ausbildungsStatus === 'bafoeg_ausstehend' ? 'selected':''}>BAföG-Antrag gestellt, offen</option>
+              </select>
+            </div>
+
+            <div class="feld">
+              <label>Tatsächlich erhaltenes BAföG</label>
+              <input type="number" min="0" step="1" placeholder="z. B. 370"
+                data-feld="bafoegBetrag" data-id="${person.id}"
+                value="${person.bafoegBetrag}" />
+              <span class="feld-hint">Euro/Monat (laut Bescheid)</span>
+            </div>
+
+          </div>
+
+          <!-- Wohnsituation (immer sichtbar wenn in Ausbildung) -->
+          <div style="margin-top:12px;">
+            <label class="checkbox-zeile">
+              <input type="checkbox" data-feld="wohntBeiEltern" data-id="${person.id}"
+                ${person.wohntBeiEltern ? 'checked':''} />
+              <span>Person wohnt im Haushalt der Eltern
+                <span style="font-size:0.76rem;color:var(--grau-500);font-weight:400;">
+                  (§ 7 Abs. 6 Nr. 2 SGB II — Aufstockungsprüfung)
+                </span>
+              </span>
+            </label>
+          </div>
+        </div>
+
+      </div><!-- /person-felder -->
+    `;
+
+    // Events binden
+    bindPersonEvents(div, person);
+    return div;
+  }
+
+  // ----------------------------------------------------------
+  // EVENTS FÜR EINE PERSONENKARTE BINDEN
+  // ----------------------------------------------------------
+
+  function bindPersonEvents(el, person) {
+
+    // Entfernen-Button
+    el.querySelector('.btn-person-loeschen').addEventListener('click', (e) => {
+      e.stopPropagation();
+      entfernePerson(person.id);
+    });
+
+    // Alle Input/Select-Felder
+    el.querySelectorAll('[data-feld]').forEach(input => {
+      const event = input.type === 'checkbox' || input.type === 'radio' ? 'change' : 'input';
+      input.addEventListener(event, () => {
+        const feld = input.dataset.feld;
+        const wert = input.type === 'checkbox' ? input.checked : input.value;
+
+        // Personendaten aktualisieren
+        const p = personen.find(p => p.id === person.id);
+        if (!p) return;
+        p[feld] = wert;
+
+        // Speziallogik: Header-Kurzinfo aktualisieren
+        if (feld === 'name' || feld === 'rolle') {
+          const header = el.querySelector('.person-name-kurzinfo');
+          const rolleEl = el.querySelector('.person-rolle-tag');
+          if (feld === 'name') header.textContent = wert || `Person ${el.closest('.person-karte') ? '?' : '?'}`;
+          if (feld === 'rolle') rolleEl.textContent = ROLLEN.find(r => r.value === wert)?.label || 'Rolle auswählen';
+        }
+
+        // Prüfungs-Checkboxen → Detail-Bereiche einblenden
+        if (feld === 'pruefungEU') {
+          el.querySelector(`[data-detail="eu"]`).classList.toggle('offen', !!wert);
+        }
+        if (feld === 'pruefungBafoeg') {
+          el.querySelector(`[data-detail="bafoeg"]`).classList.toggle('offen', !!wert);
+        }
+
+        // Aufenthaltsstatus → Erwerbs-Felder
+        if (feld === 'aufenthaltsStatus') {
+          const zeigeErwerb = (wert === 'arbeitnehmer' || wert === 'selbststaendig');
+          el.querySelector(`[data-erwerb="${person.id}"]`).classList.toggle('versteckt', !zeigeErwerb);
+        }
+
+        // Ausbildung ja/nein → Detail-Felder
+        if (feld === 'inAusbildung') {
+          el.querySelector(`[data-ausbildung="${person.id}"]`).classList.toggle('versteckt', wert !== 'ja');
+        }
+
+        // Ausbildungsart → Auto-BAföG
+        if (feld === 'ausbildungsart') {
+          p.ausbildungsartLabel = input.options[input.selectedIndex]?.text || wert;
+          const cfg = window.CONFIG?.bafoeg;
+          if (cfg && p.bafoegFoerderfaehig === 'auto') {
+            const autoTag = el.querySelector(`[data-autotag="${person.id}"]`);
+            if (cfg.foerderfaehigeArten.includes(wert)) {
+              if (autoTag) autoTag.textContent = '✓ förderfähig';
+            } else if (cfg.nichtFoerderfaehigeArten.includes(wert)) {
+              if (autoTag) autoTag.textContent = '✗ nicht förderfähig';
+            } else {
+              if (autoTag) autoTag.textContent = '? unklar';
+            }
+          }
+        }
+      });
+    });
   }
 
   // ----------------------------------------------------------
   // PRÜFUNG STARTEN
   // ----------------------------------------------------------
 
-  if (btnPruefen) {
-    btnPruefen.addEventListener('click', () => {
-      if (!aktiverFalltyp) {
-        zeigeToast('Bitte zuerst einen Falltyp auswählen.');
-        return;
-      }
+  btnPruefen.addEventListener('click', () => {
+    if (personen.length === 0) {
+      zeigeToast('Bitte mindestens eine Person zur Bedarfsgemeinschaft hinzufügen.');
+      return;
+    }
 
-      const fall = leseFalldaten();
-      const ergebnis = window.pruefeFallGesamt(fall);
+    // Daten frisch aus dem DOM lesen (sicherste Methode)
+    const bgErgebnisse = window.pruefeBedarfsgemeinschaft(personen);
 
-      rendereErgebnis(ergebnis, fall);
-      ergebnisBereich.classList.add('sichtbar');
+    rendereErgebnis(bgErgebnisse);
+    ergebnisSection.classList.add('sichtbar');
+    bgErfassungSection.classList.add('versteckt');
 
-      // Zum Ergebnis scrollen
-      setTimeout(() => {
-        ergebnisBereich.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 100);
-    });
-  }
+    // Tabs aktualisieren
+    tabBG.classList.remove('aktiv');
+    tabBG.classList.add('fertig');
+    tabErgebnis.classList.add('aktiv');
+
+    ergebnisSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
+  // ----------------------------------------------------------
+  // NEUE PRÜFUNG
+  // ----------------------------------------------------------
+
+  btnNeuePruefung.addEventListener('click', () => {
+    ergebnisSection.classList.remove('sichtbar');
+    bgErfassungSection.classList.remove('versteckt');
+    tabBG.classList.add('aktiv');
+    tabBG.classList.remove('fertig');
+    tabErgebnis.classList.remove('aktiv');
+    bgErfassungSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
 
   // ----------------------------------------------------------
   // ERGEBNIS RENDERN
   // ----------------------------------------------------------
 
-  /**
-   * Gibt das Icon für einen Prüfschritt-Status zurück.
-   * @param {string} ergebnis
-   * @returns {string}
-   */
-  function statusIcon(ergebnis) {
-    switch (ergebnis) {
-      case 'ok':          return '✓';
-      case 'warnung':     return '!';
-      case 'ausschluss':  return '✕';
-      case 'info':        return 'i';
-      default:            return '?';
-    }
-  }
+  function rendereErgebnis(bgErgebnisse) {
+    ergebnisInhalt.innerHTML = '';
 
-  /**
-   * Gibt das Ampel-Emoji zurück.
-   * @param {string} status
-   * @returns {string}
-   */
-  function ampelEmoji(status) {
-    switch (status) {
-      case 'gruen': return '✅';
-      case 'gelb':  return '⚠️';
-      case 'rot':   return '🚫';
-      default:      return '❓';
-    }
-  }
+    // Je Person ein Block
+    bgErgebnisse.forEach(({ person, ergebnis }, idx) => {
+      const name   = person.name || `Person ${idx + 1}`;
+      const rolle  = ROLLEN.find(r => r.value === person.rolle)?.label || '';
+      const { ampelStatus, ampelText, pruefschritte, alleNachweise } = ergebnis;
 
-  /**
-   * Rendert das Gesamtergebnis in den DOM.
-   * @param {object} ergebnis - von pruefeFallGesamt()
-   * @param {object} fall     - Falldaten
-   */
-  function rendereErgebnis(ergebnis, fall) {
-    // Ampel-Karte
-    const ampelKarte = document.getElementById('ampel-karte');
-    ampelKarte.className = `ampel-karte ${ergebnis.ampelStatus}`;
-    ampelKarte.innerHTML = `
-      <div class="ampel-symbol">${ampelEmoji(ergebnis.ampelStatus)}</div>
-      <div class="ampel-text">
-        <h2>${ergebnis.ampelText}</h2>
-        <p>${ergebnis.ampelBeschreibung}</p>
-        <p style="margin-top:8px;font-size:0.78rem;color:var(--grau-500);">
-          Geprüft am: ${ergebnis.pruefzeitpunkt}
-        </p>
-      </div>
-    `;
+      const ampelEmojis = { gruen: '✅', gelb: '⚠️', rot: '🚫' };
 
-    // Prüfschritte
-    const schritteListe = document.getElementById('pruefschritte-liste');
-    schritteListe.innerHTML = '';
-
-    ergebnis.pruefschritte.forEach(schritt => {
-      const div = document.createElement('div');
-      div.className = `pruefschritt ${schritt.ergebnis}`;
-
-      let nachweiHTML = '';
-      if (schritt.nachweise && schritt.nachweise.length > 0) {
-        nachweiHTML = `<ul class="pruefschritt-nachweise">
-          ${schritt.nachweise.map(n => `<li>${escapeHTML(n)}</li>`).join('')}
-        </ul>`;
-      }
-
-      div.innerHTML = `
-        <div class="pruefschritt-icon" aria-label="${schritt.ergebnis}">${statusIcon(schritt.ergebnis)}</div>
-        <div class="pruefschritt-inhalt">
-          <div class="pruefschritt-kriterium">${escapeHTML(schritt.kriterium)}</div>
-          <div class="pruefschritt-begruendung">${escapeHTML(schritt.begruendung)}</div>
-          ${nachweiHTML}
+      const personDiv = document.createElement('div');
+      personDiv.className = 'person-ergebnis';
+      personDiv.innerHTML = `
+        <div class="person-ergebnis-header ${ampelStatus}">
+          <div class="person-ampel-kreis">${ampelEmojis[ampelStatus] || '❓'}</div>
+          <div class="person-ampel-info">
+            <h3>${ampelText}</h3>
+            <p>${escHTML(name)}${rolle ? ' · ' + escHTML(rolle) : ''}</p>
+          </div>
         </div>
+        <div class="pruefschritte" id="schritte-${person.id}"></div>
       `;
-      schritteListe.appendChild(div);
+
+      ergebnisInhalt.appendChild(personDiv);
+
+      // Prüfschritte
+      const schritteEl = personDiv.querySelector(`#schritte-${person.id}`);
+      pruefschritte.forEach(s => {
+        const sd = document.createElement('div');
+        sd.className = 'pruefschritt';
+        const icons = { ok: '✓', warnung: '!', ausschluss: '✕', info: 'i' };
+        const nachweiHTML = s.nachweise?.length
+          ? `<ul class="ps-nachweise">${s.nachweise.map(n => `<li>${escHTML(n)}</li>`).join('')}</ul>`
+          : '';
+        sd.innerHTML = `
+          <div class="ps-icon ${s.ergebnis}">${icons[s.ergebnis] || '?'}</div>
+          <div class="ps-inhalt">
+            <div class="ps-kriterium">${escHTML(s.kriterium)}</div>
+            <div class="ps-begruendung">${escHTML(s.begruendung)}</div>
+            ${nachweiHTML}
+          </div>
+        `;
+        schritteEl.appendChild(sd);
+      });
+
+      // Nachweise je Person
+      if (alleNachweise.length > 0) {
+        const nDiv = document.createElement('div');
+        nDiv.className = 'nachweise-karte';
+        nDiv.style.margin = '0 20px 20px';
+        nDiv.innerHTML = `
+          <h3>📎 Benötigte Nachweise — ${escHTML(name)}</h3>
+          <ul>${alleNachweise.map(n => `<li>${escHTML(n)}</li>`).join('')}</ul>
+        `;
+        personDiv.appendChild(nDiv);
+      }
     });
 
-    // Nachweisliste
-    const nachweisList = document.getElementById('nachweise-liste');
-    nachweisList.innerHTML = '';
-    if (ergebnis.alleNachweise.length > 0) {
-      ergebnis.alleNachweise.forEach(n => {
-        const li = document.createElement('li');
-        li.textContent = n;
-        nachweisList.appendChild(li);
-      });
-      document.getElementById('nachweise-karte').classList.remove('versteckt');
-    } else {
-      document.getElementById('nachweise-karte').classList.add('versteckt');
-    }
-
-    // Prüfvermerk generieren
-    const vermerkText = generierePruefvermerk(ergebnis, fall);
-    document.getElementById('pruefvermerk-text').textContent = vermerkText;
+    // Gesamt-Prüfvermerk
+    const vermerkText = generiereVermerk(bgErgebnisse);
+    const vermerkDiv = document.createElement('div');
+    vermerkDiv.className = 'vermerk-karte';
+    vermerkDiv.innerHTML = `
+      <h3>📄 Kopierbarer Prüfvermerk (gesamt)</h3>
+      <pre class="vermerk-text" id="vermerk-text">${escHTML(vermerkText)}</pre>
+      <button class="btn-kopieren" id="btn-kopieren" type="button">📋 Vermerk kopieren</button>
+    `;
+    ergebnisInhalt.appendChild(vermerkDiv);
 
     // Rechtsstand
-    document.getElementById('rechtsstand-hinweis').textContent = ergebnis.rechtsstandHinweis;
+    const rsDiv = document.createElement('p');
+    rsDiv.className = 'rechtsstand';
+    rsDiv.textContent = CONFIG.hinweise.rechtsstand;
+    ergebnisInhalt.appendChild(rsDiv);
+
+    // Kopieren-Button
+    document.getElementById('btn-kopieren').addEventListener('click', async () => {
+      const text = document.getElementById('vermerk-text').textContent;
+      try {
+        await navigator.clipboard.writeText(text);
+        const btn = document.getElementById('btn-kopieren');
+        btn.textContent = '✓ Kopiert!';
+        btn.classList.add('kopiert');
+        setTimeout(() => {
+          btn.textContent = '📋 Vermerk kopieren';
+          btn.classList.remove('kopiert');
+        }, 2000);
+      } catch {
+        zeigeToast('Kopieren fehlgeschlagen — bitte manuell markieren.');
+      }
+    });
   }
 
   // ----------------------------------------------------------
   // PRÜFVERMERK GENERIEREN
   // ----------------------------------------------------------
 
-  /**
-   * Erstellt einen kopierbaren Prüfvermerk-Text.
-   * @param {object} ergebnis
-   * @param {object} fall
-   * @returns {string}
-   */
-  function generierePruefvermerk(ergebnis, fall) {
-    const linie = '─'.repeat(60);
+  function generiereVermerk(bgErgebnisse) {
+    const linie = '─'.repeat(58);
     const zeilen = [];
 
     zeilen.push('PRÜFVERMERK — SGB II Anspruchsprüfung nach § 7 SGB II');
     zeilen.push(linie);
-    zeilen.push(`Datum/Uhrzeit:   ${ergebnis.pruefzeitpunkt}`);
-    zeilen.push(`Falltyp:         ${aktiverFalltyp ? FALLTYPEN[aktiverFalltyp]?.label : 'unbekannt'}`);
+    zeilen.push(`Datum/Uhrzeit: ${new Date().toLocaleString('de-DE')}`);
+    zeilen.push(`Anzahl BG-Mitglieder: ${bgErgebnisse.length}`);
     zeilen.push('');
 
-    // Eingabedaten zusammenfassen
-    zeilen.push('FALLANGABEN:');
-    if (fall.alter)           zeilen.push(`  Alter:               ${fall.alter} Jahre`);
-    if (fall.familienstand)   zeilen.push(`  Familienstand:       ${fall.familienstand}`);
-    if (fall.anzahlKinder)    zeilen.push(`  Kinder (minderjährig): ${fall.anzahlKinder}`);
-    if (fall.erwerbsfaehigkeit) zeilen.push(`  Erwerbsfähigkeit:   ${fall.erwerbsfaehigkeit}`);
-    if (fall.staatsangehoerigkeit) zeilen.push(`  Staatsangehörigkeit: ${fall.staatsangehoerigkeit}`);
-    if (fall.nettoEinkommen)  zeilen.push(`  Nettoeinkommen:     ${fall.nettoEinkommen} €/Monat`);
-    if (fall.vermoegen)       zeilen.push(`  Vermögen:           ${fall.vermoegen} €`);
-    zeilen.push('');
+    bgErgebnisse.forEach(({ person, ergebnis }, idx) => {
+      const name  = person.name || `Person ${idx + 1}`;
+      const rolle = ROLLEN.find(r => r.value === person.rolle)?.label || '';
+      const statusMap = { gruen: 'KEIN AUSSCHLUSS', gelb: 'WEITERE PRÜFUNG NÖTIG', rot: 'AUSSCHLUSS WAHRSCHEINLICH' };
 
-    // Gesamtergebnis
-    zeilen.push('GESAMTERGEBNIS:');
-    const statusLabel = {
-      gruen: '[ANSPRUCH WAHRSCHEINLICH]',
-      gelb:  '[WEITERE PRÜFUNG ERFORDERLICH]',
-      rot:   '[AUSSCHLUSS WAHRSCHEINLICH]',
-    }[ergebnis.ampelStatus] || '[OFFEN]';
-    zeilen.push(`  ${statusLabel}`);
-    zeilen.push(`  ${ergebnis.ampelBeschreibung}`);
-    zeilen.push('');
-
-    // Prüfschritte
-    zeilen.push('GEPRÜFTE KRITERIEN:');
-    ergebnis.pruefschritte.forEach((schritt, i) => {
-      const symbol = { ok: '✓', warnung: '!', ausschluss: '✕', info: 'i' }[schritt.ergebnis] || '?';
-      zeilen.push(`  ${i + 1}. [${symbol}] ${schritt.kriterium}`);
-      zeilen.push(`     ${schritt.begruendung}`);
-      if (schritt.nachweise && schritt.nachweise.length > 0) {
-        zeilen.push('     Benötigte Nachweise:');
-        schritt.nachweise.forEach(n => zeilen.push(`       → ${n}`));
-      }
+      zeilen.push(`PERSON ${idx + 1}: ${name}${rolle ? ' (' + rolle + ')' : ''}`);
+      zeilen.push(`Alter: ${person.alter || 'n. a.'} Jahre`);
+      zeilen.push(`Gesamtergebnis: [${statusMap[ergebnis.ampelStatus] || '?'}]`);
       zeilen.push('');
+      zeilen.push('Geprüfte Kriterien:');
+
+      ergebnis.pruefschritte.forEach((s, i) => {
+        const sym = { ok: '✓', warnung: '!', ausschluss: '✕', info: 'i' }[s.ergebnis] || '?';
+        zeilen.push(`  ${i + 1}. [${sym}] ${s.kriterium}`);
+        zeilen.push(`     ${s.begruendung}`);
+        if (s.nachweise?.length) {
+          zeilen.push('     Nachweise:');
+          s.nachweise.forEach(n => zeilen.push(`       → ${n}`));
+        }
+        zeilen.push('');
+      });
+
+      zeilen.push(linie);
     });
 
-    // Fehlende Nachweise
-    if (ergebnis.alleNachweise.length > 0) {
-      zeilen.push('ANZUFORDERNDE NACHWEISE:');
-      ergebnis.alleNachweise.forEach(n => zeilen.push(`  → ${n}`));
-      zeilen.push('');
-    }
-
-    zeilen.push(linie);
-    zeilen.push(ergebnis.rechtsstandHinweis);
-    zeilen.push('Erstellt mit: SGB II Prüfassistent (Prototyp)');
-
+    zeilen.push(CONFIG.hinweise.rechtsstand);
     return zeilen.join('\n');
   }
 
   // ----------------------------------------------------------
-  // PRÜFVERMERK KOPIEREN
+  // HILFSFUNKTIONEN
   // ----------------------------------------------------------
 
-  const btnKopieren = document.getElementById('btn-kopieren');
-  if (btnKopieren) {
-    btnKopieren.addEventListener('click', async () => {
-      const text = document.getElementById('pruefvermerk-text').textContent;
-      try {
-        await navigator.clipboard.writeText(text);
-        btnKopieren.textContent = '✓ Kopiert!';
-        btnKopieren.classList.add('kopiert');
-        setTimeout(() => {
-          btnKopieren.textContent = '📋 Vermerk kopieren';
-          btnKopieren.classList.remove('kopiert');
-        }, 2000);
-      } catch {
-        zeigeToast('Kopieren fehlgeschlagen. Bitte manuell markieren.');
-      }
-    });
-  }
-
-  // ----------------------------------------------------------
-  // TOAST-MELDUNG
-  // ----------------------------------------------------------
-
-  /**
-   * Zeigt kurz eine Toast-Meldung an.
-   * @param {string} meldung
-   */
   function zeigeToast(meldung) {
     toast.textContent = meldung;
     toast.classList.add('sichtbar');
     setTimeout(() => toast.classList.remove('sichtbar'), 3000);
   }
 
-  // ----------------------------------------------------------
-  // HILFSFUNKTION: HTML-Escaping
-  // ----------------------------------------------------------
-
-  /**
-   * Verhindert XSS durch Escapen von HTML-Sonderzeichen.
-   * @param {string} str
-   * @returns {string}
-   */
-  function escapeHTML(str) {
+  function escHTML(str) {
     if (!str) return '';
     return String(str)
       .replace(/&/g, '&amp;')
@@ -476,4 +622,6 @@ document.addEventListener('DOMContentLoaded', () => {
       .replace(/'/g, '&#39;');
   }
 
+  // Startperson direkt hinzufügen (UX-Verbesserung)
+  btnPersonHinzu.click();
 });

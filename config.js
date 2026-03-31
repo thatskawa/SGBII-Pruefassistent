@@ -1,171 +1,101 @@
 /**
  * ============================================================
  *  SGB II Prüfassistent — Konfigurationsdatei
- *  config.js
+ *  config.js  |  Fokus: Studierende & EU-Bürger
  *
  *  HINWEIS FÜR FACHKRÄFTE:
  *  Alle anpassbaren Werte sind hier zentral hinterlegt.
- *  Bitte nur diese Datei bearbeiten, wenn sich Grenzwerte,
- *  Beträge oder Fristen gesetzlich ändern.
- *  Stand: SGB II, gültig ab 01.01.2024
+ *  Nur diese Datei bearbeiten, wenn sich Grenzwerte oder
+ *  Fristen gesetzlich ändern.
+ *  Rechtsstand: SGB II / FreizügG/EU, Stand 01.01.2024
  * ============================================================
  */
 
 const CONFIG = {
 
   // ----------------------------------------------------------
-  // § 7 Abs. 1 SGB II — GRUNDVORAUSSETZUNGEN
+  // § 7 Abs. 1 SGB II — ALTERSVORAUSSETZUNGEN
   // ----------------------------------------------------------
-
   alter: {
-    /** Mindestalter für Leistungsbezug (Jahre) */
+    /** Mindestalter für Leistungsbezug nach SGB II (Jahre) */
     minimum: 15,
 
-    /** Regelaltersgrenze: ab diesem Alter greift Rentenrecht (Jahre) */
+    /** Regelaltersgrenze: ab hier greift Rentenrecht (Jahre) */
     regelaltersgrenze: 67,
+
+    /**
+     * Maximales Alter für unverheiratete Kinder in der BG
+     * ohne eigenes Einkommen (§ 7 Abs. 3 Nr. 4 SGB II).
+     */
+    kindInBGMaxAlter: 25,
   },
 
   // ----------------------------------------------------------
-  // REGELBEDARFE (§ 20 SGB II) — Beträge in Euro/Monat
-  // Stand: 01.01.2024
+  // REGELBEDARFE (§ 20 SGB II) — für BAföG-Delta-Berechnung
+  // Stand: 01.01.2025 (Bekanntmachung RBEG)
   // ----------------------------------------------------------
-
   regelbedarfe: {
-    /** Alleinstehende / Alleinerziehende (Regelbedarfsstufe 1) */
-    stufe1: 563,
+    /**
+     * Regelbedarf für Personen unter 25 Jahren, die im elterlichen
+     * Haushalt leben (Regelbedarfsstufe 3), in Euro/Monat.
+     * Relevant für Aufstockungsprüfung nach § 7 Abs. 6 Nr. 2 SGB II.
+     */
+    stufe3_unter25_beiEltern: 451,
 
-    /** Personen in Partnerschaften, je Person (Regelbedarfsstufe 2) */
-    stufe2: 506,
+    /**
+     * Regelbedarf für Alleinstehende / Alleinerziehende
+     * (Regelbedarfsstufe 1), in Euro/Monat.
+     */
+    stufe1_alleinstehend: 563,
 
-    /** Jugendliche 14–17 Jahre (Regelbedarfsstufe 4) */
-    stufe4: 471,
-
-    /** Kinder 6–13 Jahre (Regelbedarfsstufe 5) */
-    stufe5: 390,
-
-    /** Kinder 0–5 Jahre (Regelbedarfsstufe 6) */
-    stufe6: 357,
+    /**
+     * Regelbedarf für Personen in Partnerschaft, je Person
+     * (Regelbedarfsstufe 2), in Euro/Monat.
+     */
+    stufe2_partner: 506,
   },
 
   // ----------------------------------------------------------
-  // VERMÖGENSGRENZEN (§ 12 SGB II) — Beträge in Euro
+  // BAföG-WOHNKOSTENPAUSCHALE — Betrag bei Wohnen bei Eltern
+  // Stand: BAföG-Reform 2022
   // ----------------------------------------------------------
-
-  vermoegen: {
+  bafoegWohnkostenpauschale: {
     /**
-     * Grundfreibetrag je Mitglied der Bedarfsgemeinschaft.
-     * Wird mit Anzahl der Personen multipliziert.
+     * BAföG-Wohnkostenpauschale für Studierende, die bei den Eltern
+     * wohnen, in Euro/Monat (§ 13 Abs. 2 Nr. 1 BAföG).
+     * Dieser Betrag ist deutlich niedriger als die Pauschale für
+     * eigene Wohnung (360 €). Die Differenz kann zu ungedecktem
+     * Bedarf führen → Aufstockung nach § 7 Abs. 6 Nr. 2 SGB II.
      */
-    grundfreibetragProPerson: 15000,
-
-    /** Zusätzlicher Freibetrag für notwendige Anschaffungen */
-    anschaffungsfreibetrag: 750,
-
-    /** Altersvorsorge-Freibetrag je Person (§ 12 Abs. 2 Nr. 3 SGB II) */
-    altersvorsorgeFreibetragProPerson: 750,
+    beiEltern: 59,
 
     /**
-     * Multiplikator für den Altersvorsorge-Freibetrag:
-     * 750 € × vollendete Lebensjahre, max. Gesamtbetrag prüfen
+     * BAföG-Wohnkostenpauschale für eigene Wohnung, in Euro/Monat.
      */
-    altersvorsorgeFreibetragJeLebensjahr: 750,
+    eigeneMietwohnung: 360,
   },
 
   // ----------------------------------------------------------
-  // EINKOMMENSFREIBETRÄGE (§ 11b SGB II) — in Euro oder Prozent
+  // § 7 Abs. 5 / Abs. 6 SGB II — BAföG / STUDIERENDEN-AUSSCHLUSS
   // ----------------------------------------------------------
-
-  einkommensfreibetraege: {
-    /** Grundabsetzungsbetrag (§ 11b Abs. 2 SGB II) in Euro/Monat */
-    grundabsetzungsbetrag: 100,
-
-    /**
-     * Erwerbstätigenfreibetrag (§ 11b Abs. 3 SGB II):
-     * Prozentualer Anteil des Einkommens, der anrechnungsfrei bleibt.
-     * Stufe 1: Einkommen zwischen 100 € und 1.000 €
-     */
-    erwerbstaetigenFreibetragStufe1Prozent: 20,
-
-    /**
-     * Stufe 2: Einkommen zwischen 1.000 € und 1.200 €
-     * (bzw. 1.500 € bei Kindern im Haushalt)
-     */
-    erwerbstaetigenFreibetragStufe2Prozent: 10,
-
-    /** Einkommensgrenze Stufe 1 in Euro */
-    einkommensgrenzeUntenStufe1: 100,
-
-    /** Einkommensgrenze Stufe 1/2 in Euro */
-    einkommensgrenzeObenStufe1: 1000,
-
-    /** Einkommensgrenze Stufe 2 ohne Kinder in Euro */
-    einkommensgrenzeObenStufe2OhneKinder: 1200,
-
-    /** Einkommensgrenze Stufe 2 mit Kindern in Euro */
-    einkommensgrenzeObenStufe2MitKindern: 1500,
-  },
-
-  // ----------------------------------------------------------
-  // AUFENTHALTSRECHT / EU-BÜRGER (§ 7 Abs. 1 S. 2 SGB II)
-  // ----------------------------------------------------------
-
-  aufenthaltsrecht: {
-    /**
-     * Sperrfrist für arbeitsuchende EU-Bürger ohne Vorerwerbstätigkeit
-     * in Deutschland (Monate seit Einreise).
-     * Während der ersten 3 Monate: kein Anspruch auf Bürgergeld.
-     */
-    ersteDreiMonateSperrfristMonate: 3,
-
-    /**
-     * Mindestarbeitszeit pro Woche in Stunden, ab der ein EU-Bürger
-     * als „Arbeitnehmer" im Sinne des Freizügigkeitsrechts gilt
-     * (unterhalb dieser Grenze: geringfügige Beschäftigung prüfen).
-     */
-    mindestarbeitsstundenArbeitnehmereigenschaft: 10,
-
-    /**
-     * Mindest-Bruttoeinkommen in Euro/Monat, ab dem Arbeitnehmerstatus
-     * eindeutig anerkannt wird (orientiert sich an Minijob-Grenze + Puffer).
-     */
-    mindesteinkommenArbeitnehmereigenschaft: 538,
-
-    /**
-     * Aufenthaltsdauer in Monaten, nach der ein dauerhaftes
-     * Aufenthaltsrecht (§ 4a FreizügG/EU) entsteht.
-     */
-    daueraufenthaltsrechtNachMonate: 60,
-
-    /**
-     * Nachweis-Frist für Arbeitsuche (Monate):
-     * Nach dieser Zeit ohne Nachweis ernsthafter Arbeitssuche
-     * erlischt das Aufenthaltsrecht als Arbeitsuchender.
-     */
-    arbeitssucheNachweisfristMonate: 6,
-  },
-
-  // ----------------------------------------------------------
-  // BAFÖG / AUSBILDUNGSAUSSCHLUSS (§ 7 Abs. 5 SGB II)
-  // ----------------------------------------------------------
-
   bafoeg: {
     /**
-     * Ausschluss bei BAföG-förderfähiger Ausbildung / Studium:
-     * true = Ausschluss ist aktiv (Standard nach § 7 Abs. 5 SGB II)
+     * Ausschluss bei BAföG-förderfähiger Ausbildung aktiv?
+     * true = Standard nach § 7 Abs. 5 SGB II
      */
     ausschlussAktiv: true,
 
     /**
-     * Maximale Erkrankungs-/Schwangerschaftsdauer in Monaten,
-     * bis zu der kein Ausschlussgrund besteht (Ausnahme § 7 Abs. 6 Nr. 1).
+     * Maximale Erkrankungs- oder Schwangerschaftsdauer in Monaten,
+     * bis zu der die Ausnahme nach § 7 Abs. 6 Nr. 1 SGB II greift.
      */
     erkrankungAusnahmedauerMonate: 3,
 
     /**
      * Ausbildungsarten, die dem Grunde nach BAföG-förderfähig sind.
-     * Diese Liste ist für die automatische Vorauswahl relevant.
+     * Grundlage für die automatische Vorauswahl im Formular.
      */
-    foerderfaehigeAusbildungsarten: [
+    foerderfaehigeArten: [
       'vollzeitstudium',
       'ausbildung_dual',
       'ausbildung_schulisch',
@@ -173,81 +103,62 @@ const CONFIG = {
     ],
 
     /**
-     * Ausbildungsarten, die NICHT BAföG-förderfähig sind
-     * (z. B. Teilzeitstudium unter bestimmten Bedingungen).
+     * Ausbildungsarten, die NICHT BAföG-förderfähig sind.
      */
-    nichtFoerderfaehigeAusbildungsarten: [
+    nichtFoerderfaehigeArten: [
       'teilzeitstudium',
     ],
   },
 
   // ----------------------------------------------------------
-  // STATIONÄRE UNTERBRINGUNG (§ 7 Abs. 4 SGB II)
+  // § 7 Abs. 1 S. 2 SGB II / FreizügG/EU — EU-BÜRGER
   // ----------------------------------------------------------
-
-  stationaer: {
+  aufenthaltsrecht: {
     /**
-     * Mindest-Unterbringungsdauer in Monaten, nach der der Anspruch
-     * auf Bürgergeld entfällt (§ 7 Abs. 4 SGB II).
-     * Kürzere Aufenthalte (z. B. kurze Reha) schließen i. d. R. nicht aus.
+     * Sperrfrist in Monaten für den Leistungsbezug:
+     * In den ersten X Monaten kein Anspruch ohne Arbeitnehmerstatus.
      */
-    ausschlussAbMonate: 6,
+    sperrfristMonate: 3,
+
+    /**
+     * Mindest-Wochenstunden für anerkannten Arbeitnehmerstatus
+     * (unterhalb: geringfügig, Arbeitnehmereigenschaft fraglich).
+     */
+    mindestStundenArbeitnehmer: 10,
+
+    /**
+     * Mindest-Bruttoeinkommen in €/Monat für klaren Arbeitnehmerstatus.
+     * Orientierung: Minijob-Grenze (538 €) als Untergrenze.
+     */
+    mindestEinkommenArbeitnehmer: 538,
+
+    /**
+     * Aufenthaltsdauer in Monaten, nach der das Daueraufenthaltsrecht
+     * nach § 4a FreizügG/EU entsteht (= 5 Jahre).
+     */
+    daueraufenthaltsrechtMonate: 60,
+
+    /**
+     * Frist in Monaten: Nach dieser Zeit ohne Nachweis ernsthafter
+     * Arbeitssuche kann das Aufenthaltsrecht als Arbeitsuchender erlöschen.
+     */
+    arbeitssucheMaxMonate: 6,
   },
 
   // ----------------------------------------------------------
-  // ERWERBSFÄHIGKEIT (§ 8 SGB II)
+  // TEXTE — Standardhinweise für die Ergebnisanzeige
   // ----------------------------------------------------------
-
-  erwerbsfaehigkeit: {
-    /**
-     * Mindest-Arbeitsfähigkeit in Stunden pro Tag,
-     * ab der eine Person als erwerbsfähig gilt.
-     */
-    mindestStundenProTag: 3,
-  },
-
-  // ----------------------------------------------------------
-  // BEDARFSGEMEINSCHAFT (§ 7 Abs. 3 SGB II)
-  // ----------------------------------------------------------
-
-  bedarfsgemeinschaft: {
-    /**
-     * Maximales Alter minderjähriger Kinder (bis unter X Jahre),
-     * die zur Bedarfsgemeinschaft zählen.
-     */
-    minderjährigesKindBisAlter: 18,
-
-    /**
-     * Maximales Alter für in der BG lebende unverheiratete Kinder
-     * ohne eigenes Einkommen (§ 7 Abs. 3 Nr. 4 SGB II).
-     */
-    kindInBGBisAlter: 25,
-  },
-
-  // ----------------------------------------------------------
-  // TEXTE & HINWEISE (für die Ergebnisanzeige)
-  // ----------------------------------------------------------
-
   hinweise: {
-    /** Standardhinweis bei unklarer Aufenthaltssituation */
-    auslaenderbehoerdeAbstimmung:
-      'Bitte stimmen Sie den Aufenthaltsstatus mit der zuständigen Ausländerbehörde ab.',
-
-    /** Hinweis bei laufendem BAföG-Antrag */
-    bafoegAntragAusstehend:
+    auslaenderbehoerde:
+      'Bitte Aufenthaltsstatus mit der zuständigen Ausländerbehörde abstimmen.',
+    bafoegDarlehen:
       'Solange über den BAföG-Antrag nicht entschieden wurde, kann ein Darlehen nach § 27 SGB II in Betracht kommen.',
-
-    /** Hinweis bei eingeschränkter Erwerbsfähigkeit */
-    eingeschraenktErwerbsfaehig:
-      'Bei eingeschränkter Erwerbsfähigkeit ggf. Prüfung auf Leistungen nach SGB XII veranlassen.',
-
-    /** Pflichthinweis Rechtsstand */
-    rechtsstandHinweis:
-      'Dieses Tool ist ein Prüfhilfsmittel und ersetzt keine rechtlich verbindliche Einzelfallprüfung. Rechtsstand: 01.01.2024.',
+    sgbXII:
+      'Ggf. Prüfung auf Leistungen nach SGB XII (Sozialhilfe / Grundsicherung im Alter) veranlassen.',
+    rechtsstand:
+      'Dieses Tool ist ein Prüfhilfsmittel und ersetzt keine rechtlich verbindliche Einzelfallentscheidung. Rechtsstand: 01.01.2024.',
   },
 
 };
 
-// Export für andere Module (keine ES-Module, daher globale Variable)
-// rule-engine.js und main.js greifen über window.CONFIG zu.
 window.CONFIG = CONFIG;

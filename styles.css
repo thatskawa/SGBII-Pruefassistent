@@ -1,798 +1,661 @@
 /* ============================================================
-   SGB II Prüfassistent — Stylesheet
-   styles.css
-   Schlichtes, helles Design mit hohen Kontrasten (WCAG AA)
+   SGB II Prüfassistent v2 — Stylesheet
+   Behördennahes, helles, WCAG-AA-konformes Design
    ============================================================ */
 
-/* --- RESET & BASISVARIABLEN -------------------------------- */
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  /* Primärfarben */
-  --blau:          #005faf;
-  --blau-dunkel:   #003f7a;
-  --blau-hell:     #deeaf7;
-  --blau-border:   #a8c8e8;
+  --blau:         #005faf;
+  --blau-dunkel:  #003f7a;
+  --blau-hell:    #deeaf7;
+  --blau-mittel:  #a8c8e8;
 
-  /* Grautöne */
-  --grau-100:  #f5f6f8;
-  --grau-200:  #eaedf1;
-  --grau-300:  #d1d6de;
-  --grau-500:  #6b7685;
-  --grau-700:  #3a4252;
-  --grau-900:  #1a2030;
+  --grau-50:  #f8f9fb;
+  --grau-100: #f2f4f7;
+  --grau-200: #e4e8ee;
+  --grau-300: #c9d0db;
+  --grau-500: #6b7685;
+  --grau-700: #38434f;
+  --grau-900: #18202a;
 
-  /* Ampelfarben */
-  --gruen:         #1a6e2e;
-  --gruen-bg:      #eaf4ec;
-  --gruen-border:  #84c99a;
-  --gelb:          #7a5c00;
-  --gelb-bg:       #fdf6e0;
-  --gelb-border:   #e0c060;
-  --rot:           #9b1a1a;
-  --rot-bg:        #fdeaea;
-  --rot-border:    #e08080;
+  --gruen:        #1a6e2e;
+  --gruen-bg:     #eaf4ec;
+  --gruen-border: #7dc490;
+  --gelb:         #7a5c00;
+  --gelb-bg:      #fdf6e0;
+  --gelb-border:  #d4a820;
+  --rot:          #9b1a1a;
+  --rot-bg:       #fdeaea;
+  --rot-border:   #d97070;
+  --info:         #005faf;
+  --info-bg:      #deeaf7;
+  --info-border:  #a8c8e8;
 
-  /* Typografie */
-  --schrift-basis: 'Segoe UI', 'Calibri', 'Helvetica Neue', Arial, sans-serif;
-  --schrift-mono:  'Consolas', 'Courier New', monospace;
+  --font-sans: 'Segoe UI', 'Calibri', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'Consolas', 'Courier New', monospace;
 
-  /* Abstände */
-  --abstand-xs:  4px;
-  --abstand-s:   8px;
-  --abstand-m:  16px;
-  --abstand-l:  24px;
-  --abstand-xl: 40px;
-
-  /* Schatten */
-  --schatten-s: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
-  --schatten-m: 0 2px 8px rgba(0,0,0,.10), 0 1px 4px rgba(0,0,0,.06);
-
-  /* Rahmen */
-  --radius:    6px;
-  --radius-l: 10px;
+  --r:   6px;
+  --rl: 10px;
+  --sh: 0 1px 4px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.05);
+  --shm: 0 2px 8px rgba(0,0,0,.10);
 }
 
-/* --- GRUNDLAYOUT ------------------------------------------- */
-html {
-  font-size: 16px;
-  scroll-behavior: smooth;
-}
-
+html { font-size: 16px; scroll-behavior: smooth; }
 body {
-  font-family: var(--schrift-basis);
-  background-color: var(--grau-100);
+  font-family: var(--font-sans);
+  background: var(--grau-100);
   color: var(--grau-900);
   line-height: 1.6;
   min-height: 100vh;
 }
 
-/* --- SEITENKOPF ------------------------------------------- */
+/* ---- HEADER ------------------------------------------------ */
 header {
   background: var(--blau);
   color: #fff;
-  padding: var(--abstand-m) var(--abstand-xl);
+  padding: 14px 32px;
   display: flex;
   align-items: center;
-  gap: var(--abstand-m);
-  box-shadow: 0 2px 6px rgba(0,0,0,.18);
+  gap: 14px;
+  box-shadow: 0 2px 6px rgba(0,0,0,.2);
+}
+.header-icon {
+  width: 42px; height: 42px;
+  background: rgba(255,255,255,.16);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; flex-shrink: 0;
+}
+.header-text h1 { font-size: 1.15rem; font-weight: 700; line-height: 1.2; }
+.header-text p  { font-size: 0.8rem; opacity: .82; margin-top: 2px; }
+
+/* ---- CONTAINER -------------------------------------------- */
+.container {
+  max-width: 980px;
+  margin: 24px auto 60px;
+  padding: 0 16px;
 }
 
-.header-icon {
-  width: 44px;
-  height: 44px;
-  background: rgba(255,255,255,0.18);
-  border-radius: 50%;
+/* ---- SCHRITTANZEIGE --------------------------------------- */
+.schritte-leiste {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 24px;
+  background: #fff;
+  border: 1px solid var(--grau-200);
+  border-radius: var(--rl);
+  overflow: hidden;
+  box-shadow: var(--sh);
+}
+.schritt-tab {
+  flex: 1;
+  padding: 12px 8px;
+  text-align: center;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--grau-500);
+  border-right: 1px solid var(--grau-200);
+  background: var(--grau-50);
+  user-select: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
+  gap: 6px;
+}
+.schritt-tab:last-child { border-right: none; }
+.schritt-tab.aktiv {
+  background: var(--blau);
+  color: #fff;
+}
+.schritt-tab.fertig {
+  background: var(--gruen-bg);
+  color: var(--gruen);
+}
+.schritt-tab .tab-num {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 0.72rem; font-weight: 700;
+  background: rgba(0,0,0,.12);
   flex-shrink: 0;
 }
+.schritt-tab.aktiv .tab-num { background: rgba(255,255,255,.25); }
+.schritt-tab.fertig .tab-num { background: var(--gruen); color: #fff; }
 
-.header-text h1 {
-  font-size: 1.25rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  line-height: 1.2;
-}
-
-.header-text p {
-  font-size: 0.82rem;
-  opacity: 0.85;
-  margin-top: 2px;
-}
-
-/* --- HAUPTCONTAINER --------------------------------------- */
-.container {
-  max-width: 960px;
-  margin: var(--abstand-l) auto var(--abstand-xl);
-  padding: 0 var(--abstand-m);
-}
-
-/* --- FALLTYP-AUSWAHL -------------------------------------- */
-.falltyp-auswahl {
+/* ---- KARTE ------------------------------------------------- */
+.karte {
   background: #fff;
-  border: 1px solid var(--grau-300);
-  border-radius: var(--radius-l);
-  padding: var(--abstand-l);
-  margin-bottom: var(--abstand-l);
-  box-shadow: var(--schatten-s);
+  border: 1px solid var(--grau-200);
+  border-radius: var(--rl);
+  padding: 24px;
+  margin-bottom: 20px;
+  box-shadow: var(--sh);
 }
-
-.falltyp-auswahl h2 {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--grau-700);
-  margin-bottom: var(--abstand-m);
-  display: flex;
-  align-items: center;
-  gap: var(--abstand-s);
-}
-
-.falltyp-auswahl h2::before {
-  content: '①';
-  background: var(--blau);
-  color: #fff;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.8rem;
-  font-weight: 700;
-}
-
-.falltyp-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: var(--abstand-s);
-}
-
-.falltyp-btn {
-  border: 2px solid var(--grau-300);
-  background: #fff;
-  border-radius: var(--radius);
-  padding: var(--abstand-m) var(--abstand-s);
-  cursor: pointer;
-  font-family: var(--schrift-basis);
+.karte-titel {
   font-size: 0.88rem;
-  font-weight: 600;
-  color: var(--grau-700);
-  text-align: center;
-  transition: border-color 0.15s, background 0.15s, color 0.15s;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--abstand-xs);
-}
-
-.falltyp-btn:hover {
-  border-color: var(--blau);
-  color: var(--blau);
-  background: var(--blau-hell);
-}
-
-.falltyp-btn.aktiv {
-  border-color: var(--blau);
-  background: var(--blau);
-  color: #fff;
-}
-
-.falltyp-btn .falltyp-icon {
-  font-size: 1.5rem;
-  line-height: 1;
-}
-
-/* --- EINGABEBEREICH --------------------------------------- */
-.eingabe-bereich {
-  background: #fff;
-  border: 1px solid var(--grau-300);
-  border-radius: var(--radius-l);
-  padding: var(--abstand-l);
-  margin-bottom: var(--abstand-l);
-  box-shadow: var(--schatten-s);
-}
-
-.sektion {
-  margin-bottom: var(--abstand-l);
-}
-
-.sektion:last-child {
-  margin-bottom: 0;
-}
-
-.sektion-titel {
-  font-size: 0.92rem;
   font-weight: 700;
-  color: var(--blau-dunkel);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin-bottom: var(--abstand-m);
-  padding-bottom: var(--abstand-s);
+  letter-spacing: .06em;
+  color: var(--blau-dunkel);
+  margin-bottom: 18px;
+  padding-bottom: 10px;
   border-bottom: 2px solid var(--blau-hell);
   display: flex;
   align-items: center;
-  gap: var(--abstand-s);
+  gap: 8px;
 }
-
-.sektion-titel .sektion-badge {
-  background: var(--blau);
-  color: #fff;
+.karte-titel .badge {
   font-size: 0.7rem;
-  padding: 2px 7px;
-  border-radius: 10px;
   text-transform: none;
   letter-spacing: 0;
+  background: var(--blau);
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 10px;
   font-weight: 600;
 }
 
-/* --- FORMULARFELDER --------------------------------------- */
+/* ---- FORMULAR FELDER --------------------------------------- */
 .felder-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: var(--abstand-m) var(--abstand-l);
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 14px 20px;
 }
-
-.feld {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.feld.feld-breit {
-  grid-column: 1 / -1;
-}
+.feld { display: flex; flex-direction: column; gap: 4px; }
+.feld.breit { grid-column: 1 / -1; }
 
 label {
-  font-size: 0.85rem;
+  font-size: 0.83rem;
   font-weight: 600;
   color: var(--grau-700);
 }
-
-label .pflicht {
-  color: #c0392b;
-  margin-left: 2px;
-}
-
-.feld-hinweis {
-  font-size: 0.78rem;
+.feld-hint {
+  font-size: 0.76rem;
   color: var(--grau-500);
-  margin-top: -3px;
+  margin-top: -2px;
 }
 
 input[type="number"],
 input[type="text"],
 select {
-  font-family: var(--schrift-basis);
-  font-size: 0.92rem;
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
   color: var(--grau-900);
   background: #fff;
   border: 1.5px solid var(--grau-300);
-  border-radius: var(--radius);
+  border-radius: var(--r);
   padding: 7px 10px;
   width: 100%;
-  transition: border-color 0.15s, box-shadow 0.15s;
-  appearance: auto;
+  transition: border-color .15s, box-shadow .15s;
 }
-
-input[type="number"]:focus,
-input[type="text"]:focus,
-select:focus {
+input:focus, select:focus {
   outline: none;
   border-color: var(--blau);
-  box-shadow: 0 0 0 3px rgba(0,95,175,.15);
+  box-shadow: 0 0 0 3px rgba(0,95,175,.13);
 }
+input::placeholder { color: var(--grau-500); }
 
-input[type="number"]::placeholder,
-input[type="text"]::placeholder {
-  color: var(--grau-500);
-}
-
-/* Checkboxen */
-.checkbox-gruppe {
-  display: flex;
-  flex-direction: column;
-  gap: var(--abstand-s);
-}
-
-.checkbox-item {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--abstand-s);
-  cursor: pointer;
-}
-
-.checkbox-item input[type="checkbox"] {
-  width: 17px;
-  height: 17px;
-  margin-top: 2px;
-  flex-shrink: 0;
-  accent-color: var(--blau);
-  cursor: pointer;
-}
-
-.checkbox-item span {
-  font-size: 0.88rem;
-  color: var(--grau-700);
-}
-
-/* Radio-Buttons */
 .radio-gruppe {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--abstand-s);
+  gap: 8px;
+  margin-top: 2px;
 }
-
 .radio-item {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   cursor: pointer;
+  font-size: 0.87rem;
+  color: var(--grau-700);
 }
-
 .radio-item input[type="radio"] {
   accent-color: var(--blau);
-  width: 16px;
-  height: 16px;
+  width: 15px; height: 15px;
   cursor: pointer;
 }
 
-.radio-item span {
-  font-size: 0.88rem;
-  color: var(--grau-700);
-}
-
-/* --- AUTOMATISCH ERMITTELT-BADGE -------------------------- */
-.auto-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: var(--grau-200);
-  color: var(--grau-500);
-  font-size: 0.73rem;
-  padding: 2px 8px;
-  border-radius: 10px;
-  margin-left: var(--abstand-s);
-  font-weight: 500;
-}
-
-/* --- TOGGLE-BEREICH (aufklappbar) ------------------------- */
-.toggle-bereich {
-  border: 1px solid var(--grau-200);
-  border-radius: var(--radius);
-  overflow: hidden;
-  margin-top: var(--abstand-s);
-}
-
-.toggle-header {
-  background: var(--grau-100);
-  padding: var(--abstand-s) var(--abstand-m);
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--grau-700);
-  cursor: pointer;
+.checkbox-zeile {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  font-size: 0.87rem;
+  color: var(--grau-700);
+  margin-top: 4px;
+}
+.checkbox-zeile input[type="checkbox"] {
+  accent-color: var(--blau);
+  width: 16px; height: 16px;
+  cursor: pointer;
+}
+
+/* ---- PERSONEN-LISTE --------------------------------------- */
+.personen-liste {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.person-karte {
+  border: 1.5px solid var(--grau-200);
+  border-radius: var(--r);
+  overflow: hidden;
+  transition: border-color .15s;
+}
+.person-karte:focus-within { border-color: var(--blau-mittel); }
+
+.person-header {
+  background: var(--grau-50);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
   user-select: none;
 }
+.person-header:hover { background: var(--grau-100); }
 
-.toggle-header:hover {
-  background: var(--grau-200);
+.person-header-links {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.toggle-inhalt {
-  padding: var(--abstand-m);
-  display: none;
-}
-
-.toggle-inhalt.offen {
-  display: block;
-}
-
-/* --- PRÜFEN-BUTTON ---------------------------------------- */
-.pruef-bar {
-  text-align: right;
-  margin-bottom: var(--abstand-l);
-}
-
-.btn-pruefen {
+.person-index {
+  width: 26px; height: 26px;
+  border-radius: 50%;
   background: var(--blau);
   color: #fff;
-  border: none;
-  border-radius: var(--radius);
-  padding: 12px 32px;
-  font-family: var(--schrift-basis);
-  font-size: 1rem;
+  font-size: 0.78rem;
   font-weight: 700;
-  cursor: pointer;
-  letter-spacing: 0.02em;
-  transition: background 0.15s, box-shadow 0.15s;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--abstand-s);
-}
-
-.btn-pruefen:hover {
-  background: var(--blau-dunkel);
-  box-shadow: 0 2px 8px rgba(0,63,122,.3);
-}
-
-.btn-pruefen:active {
-  transform: translateY(1px);
-}
-
-.btn-pruefen:focus-visible {
-  outline: 3px solid var(--blau);
-  outline-offset: 2px;
-}
-
-/* --- ERGEBNISBEREICH -------------------------------------- */
-.ergebnis-bereich {
-  display: none;
-}
-
-.ergebnis-bereich.sichtbar {
-  display: block;
-}
-
-/* Ampel-Header */
-.ampel-karte {
-  border-radius: var(--radius-l);
-  padding: var(--abstand-l);
-  margin-bottom: var(--abstand-l);
-  display: flex;
-  align-items: flex-start;
-  gap: var(--abstand-l);
-  box-shadow: var(--schatten-m);
-  border-left: 6px solid;
-}
-
-.ampel-karte.gruen {
-  background: var(--gruen-bg);
-  border-color: var(--gruen);
-}
-
-.ampel-karte.gelb {
-  background: var(--gelb-bg);
-  border-color: #c8a020;
-}
-
-.ampel-karte.rot {
-  background: var(--rot-bg);
-  border-color: var(--rot);
-}
-
-.ampel-symbol {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.8rem;
   flex-shrink: 0;
 }
 
-.ampel-karte.gruen .ampel-symbol { background: var(--gruen); }
-.ampel-karte.gelb  .ampel-symbol { background: #c8a020; }
-.ampel-karte.rot   .ampel-symbol { background: var(--rot); }
-
-.ampel-text h2 {
-  font-size: 1.15rem;
-  font-weight: 700;
-  margin-bottom: 4px;
+.person-name-kurzinfo {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--grau-900);
 }
-.ampel-karte.gruen .ampel-text h2 { color: var(--gruen); }
-.ampel-karte.gelb  .ampel-text h2 { color: var(--gelb); }
-.ampel-karte.rot   .ampel-text h2 { color: var(--rot); }
-
-.ampel-text p {
-  font-size: 0.9rem;
-  color: var(--grau-700);
-  line-height: 1.5;
+.person-rolle-tag {
+  font-size: 0.75rem;
+  color: var(--grau-500);
 }
 
-/* --- PRÜFSCHRITTE ----------------------------------------- */
-.pruefschritte-karte {
-  background: #fff;
+.btn-person-loeschen {
+  background: none;
   border: 1px solid var(--grau-300);
-  border-radius: var(--radius-l);
-  padding: var(--abstand-l);
-  margin-bottom: var(--abstand-l);
-  box-shadow: var(--schatten-s);
+  border-radius: var(--r);
+  color: var(--rot);
+  font-size: 0.8rem;
+  padding: 3px 10px;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: background .12s, border-color .12s;
+}
+.btn-person-loeschen:hover {
+  background: var(--rot-bg);
+  border-color: var(--rot-border);
 }
 
-.pruefschritte-karte h3 {
+.person-felder {
+  padding: 16px;
+  border-top: 1px solid var(--grau-200);
+  background: #fff;
+}
+
+.pruefung-auswahl {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+.pruefung-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 1.5px solid var(--grau-300);
+  border-radius: 20px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--grau-700);
+  cursor: pointer;
+  transition: border-color .15s, background .15s, color .15s;
+  user-select: none;
+}
+.pruefung-toggle input[type="checkbox"] { display: none; }
+.pruefung-toggle:has(input:checked) {
+  border-color: var(--blau);
+  background: var(--blau-hell);
+  color: var(--blau-dunkel);
+}
+
+.detail-bereich {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--grau-200);
+  display: none;
+}
+.detail-bereich.offen { display: block; }
+
+.auto-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.72rem;
+  background: var(--grau-100);
+  color: var(--grau-500);
+  padding: 1px 7px;
+  border-radius: 10px;
+  margin-left: 6px;
+  font-weight: 500;
+}
+
+/* ---- BUTTONS ---------------------------------------------- */
+.btn-primär {
+  background: var(--blau);
+  color: #fff;
+  border: none;
+  border-radius: var(--r);
+  padding: 11px 28px;
+  font-family: var(--font-sans);
   font-size: 0.95rem;
   font-weight: 700;
+  cursor: pointer;
+  transition: background .15s, box-shadow .15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.btn-primär:hover { background: var(--blau-dunkel); box-shadow: 0 2px 8px rgba(0,63,122,.28); }
+.btn-primär:focus-visible { outline: 3px solid var(--blau); outline-offset: 2px; }
+
+.btn-sekundär {
+  background: #fff;
+  color: var(--blau);
+  border: 1.5px solid var(--blau);
+  border-radius: var(--r);
+  padding: 9px 20px;
+  font-family: var(--font-sans);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-sekundär:hover { background: var(--blau); color: #fff; }
+
+.btn-ghost {
+  background: var(--grau-100);
   color: var(--grau-700);
-  margin-bottom: var(--abstand-m);
-  padding-bottom: var(--abstand-s);
-  border-bottom: 1px solid var(--grau-200);
+  border: 1.5px solid var(--grau-200);
+  border-radius: var(--r);
+  padding: 9px 18px;
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-ghost:hover { background: var(--grau-200); }
+
+.btn-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.btn-bar.rechts { justify-content: flex-end; }
+
+/* ---- ERGEBNIS --------------------------------------------- */
+.ergebnis-section { display: none; }
+.ergebnis-section.sichtbar { display: block; }
+
+/* Ampel je Person */
+.person-ergebnis {
+  background: #fff;
+  border: 1px solid var(--grau-200);
+  border-radius: var(--rl);
+  overflow: hidden;
+  margin-bottom: 20px;
+  box-shadow: var(--sh);
+}
+
+.person-ergebnis-header {
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border-left: 5px solid;
+}
+.person-ergebnis-header.gruen  { background: var(--gruen-bg);  border-color: var(--gruen); }
+.person-ergebnis-header.gelb   { background: var(--gelb-bg);   border-color: #c8a020; }
+.person-ergebnis-header.rot    { background: var(--rot-bg);    border-color: var(--rot); }
+
+.person-ampel-kreis {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.3rem;
+  flex-shrink: 0;
+}
+.gruen .person-ampel-kreis  { background: var(--gruen); }
+.gelb  .person-ampel-kreis  { background: #c8a020; }
+.rot   .person-ampel-kreis  { background: var(--rot); }
+
+.person-ampel-info h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.gruen .person-ampel-info h3 { color: var(--gruen); }
+.gelb  .person-ampel-info h3 { color: var(--gelb); }
+.rot   .person-ampel-info h3 { color: var(--rot); }
+
+.person-ampel-info p {
+  font-size: 0.82rem;
+  color: var(--grau-500);
+  margin-top: 1px;
+}
+
+/* Prüfschritte */
+.pruefschritte {
+  padding: 0 20px 16px;
 }
 
 .pruefschritt {
   display: flex;
-  gap: var(--abstand-m);
-  padding: var(--abstand-m) 0;
-  border-bottom: 1px solid var(--grau-200);
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--grau-100);
 }
+.pruefschritt:last-child { border-bottom: none; }
 
-.pruefschritt:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
-}
-
-.pruefschritt-icon {
-  width: 30px;
-  height: 30px;
+.ps-icon {
+  width: 26px; height: 26px;
   border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.9rem;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.78rem;
+  font-weight: 700;
   flex-shrink: 0;
-  margin-top: 1px;
+  margin-top: 2px;
 }
+.ps-icon.ok         { background: var(--gruen-bg);  color: var(--gruen);  border: 1.5px solid var(--gruen-border); }
+.ps-icon.warnung    { background: var(--gelb-bg);   color: var(--gelb);   border: 1.5px solid var(--gelb-border); }
+.ps-icon.ausschluss { background: var(--rot-bg);    color: var(--rot);    border: 1.5px solid var(--rot-border); }
+.ps-icon.info       { background: var(--info-bg);   color: var(--info);   border: 1.5px solid var(--info-border); }
 
-.pruefschritt.ok     .pruefschritt-icon { background: var(--gruen-bg); color: var(--gruen); border: 1.5px solid var(--gruen-border); }
-.pruefschritt.warnung .pruefschritt-icon { background: var(--gelb-bg);  color: var(--gelb);  border: 1.5px solid var(--gelb-border); }
-.pruefschritt.ausschluss .pruefschritt-icon { background: var(--rot-bg);  color: var(--rot);   border: 1.5px solid var(--rot-border); }
-.pruefschritt.info   .pruefschritt-icon { background: var(--blau-hell); color: var(--blau);  border: 1.5px solid var(--blau-border); }
-
-.pruefschritt-inhalt {
-  flex: 1;
-}
-
-.pruefschritt-kriterium {
-  font-size: 0.88rem;
+.ps-inhalt { flex: 1; }
+.ps-kriterium {
+  font-size: 0.85rem;
   font-weight: 700;
   color: var(--grau-900);
-  margin-bottom: 3px;
+  margin-bottom: 2px;
 }
-
-.pruefschritt-begruendung {
-  font-size: 0.85rem;
+.ps-begruendung {
+  font-size: 0.83rem;
   color: var(--grau-700);
   line-height: 1.5;
 }
-
-.pruefschritt-nachweise {
-  margin-top: var(--abstand-s);
-  padding-left: var(--abstand-m);
+.ps-nachweise {
+  margin-top: 6px;
+  padding-left: 14px;
 }
-
-.pruefschritt-nachweise li {
-  font-size: 0.82rem;
+.ps-nachweise li {
+  font-size: 0.79rem;
   color: var(--blau-dunkel);
   line-height: 1.6;
+  list-style: none;
 }
+.ps-nachweise li::before { content: '→ '; color: var(--blau); }
 
-.pruefschritt-nachweise li::marker {
-  content: '→ ';
-  color: var(--blau);
-}
-
-/* --- NACHWEISLISTE ---------------------------------------- */
+/* Nachweiskarte */
 .nachweise-karte {
   background: var(--blau-hell);
-  border: 1px solid var(--blau-border);
-  border-radius: var(--radius-l);
-  padding: var(--abstand-l);
-  margin-bottom: var(--abstand-l);
+  border: 1px solid var(--blau-mittel);
+  border-radius: var(--rl);
+  padding: 18px 20px;
+  margin-bottom: 20px;
 }
-
 .nachweise-karte h3 {
-  font-size: 0.92rem;
+  font-size: 0.88rem;
   font-weight: 700;
   color: var(--blau-dunkel);
-  margin-bottom: var(--abstand-m);
+  margin-bottom: 10px;
 }
-
 .nachweise-karte ul {
-  padding-left: var(--abstand-m);
+  padding-left: 16px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
-
 .nachweise-karte li {
-  font-size: 0.88rem;
+  font-size: 0.85rem;
   color: var(--grau-900);
   line-height: 1.5;
 }
 
-.nachweise-karte li::marker {
-  color: var(--blau);
-}
-
-/* --- PRÜFVERMERK ------------------------------------------ */
-.pruefvermerk-karte {
+/* Prüfvermerk */
+.vermerk-karte {
   background: #fff;
-  border: 1px solid var(--grau-300);
-  border-radius: var(--radius-l);
-  padding: var(--abstand-l);
-  margin-bottom: var(--abstand-l);
-  box-shadow: var(--schatten-s);
+  border: 1px solid var(--grau-200);
+  border-radius: var(--rl);
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: var(--sh);
 }
-
-.pruefvermerk-karte h3 {
-  font-size: 0.92rem;
+.vermerk-karte h3 {
+  font-size: 0.88rem;
   font-weight: 700;
   color: var(--grau-700);
-  margin-bottom: var(--abstand-m);
+  margin-bottom: 12px;
 }
-
-.pruefvermerk-text {
-  background: var(--grau-100);
-  border: 1px solid var(--grau-300);
-  border-radius: var(--radius);
-  padding: var(--abstand-m);
-  font-family: var(--schrift-mono);
-  font-size: 0.82rem;
+.vermerk-text {
+  background: var(--grau-50);
+  border: 1px solid var(--grau-200);
+  border-radius: var(--r);
+  padding: 14px;
+  font-family: var(--font-mono);
+  font-size: 0.79rem;
   color: var(--grau-900);
   white-space: pre-wrap;
   line-height: 1.7;
-  min-height: 100px;
   user-select: all;
+  min-height: 80px;
 }
-
 .btn-kopieren {
-  margin-top: var(--abstand-s);
+  margin-top: 8px;
   background: #fff;
   color: var(--blau);
   border: 1.5px solid var(--blau);
-  border-radius: var(--radius);
-  padding: 7px 18px;
-  font-family: var(--schrift-basis);
-  font-size: 0.85rem;
+  border-radius: var(--r);
+  padding: 6px 16px;
+  font-family: var(--font-sans);
+  font-size: 0.83rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: background .15s, color .15s;
   display: inline-flex;
   align-items: center;
-  gap: var(--abstand-xs);
+  gap: 5px;
 }
+.btn-kopieren:hover { background: var(--blau); color: #fff; }
+.btn-kopieren.kopiert { background: var(--gruen); color: #fff; border-color: var(--gruen); }
 
-.btn-kopieren:hover {
-  background: var(--blau);
-  color: #fff;
-}
-
-.btn-kopieren.kopiert {
-  background: var(--gruen);
-  color: #fff;
-  border-color: var(--gruen);
-}
-
-/* --- RECHTSSTAND-HINWEIS ---------------------------------- */
-.rechtsstand-hinweis {
+/* ---- RECHTSSTAND ------------------------------------------ */
+.rechtsstand {
   background: var(--grau-200);
-  border-radius: var(--radius);
-  padding: var(--abstand-m);
-  font-size: 0.8rem;
+  border-radius: var(--r);
+  padding: 10px 14px;
+  font-size: 0.77rem;
   color: var(--grau-500);
   text-align: center;
-  margin-bottom: var(--abstand-l);
+  margin-bottom: 24px;
 }
 
-/* --- SEPARATOR -------------------------------------------- */
-hr.trenner {
-  border: none;
-  border-top: 1px solid var(--grau-200);
-  margin: var(--abstand-l) 0;
-}
+/* ---- TRENNER ---------------------------------------------- */
+hr { border: none; border-top: 1px solid var(--grau-200); margin: 20px 0; }
 
-/* --- STATUS-TAG ------------------------------------------- */
-.status-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 10px;
-  margin-left: var(--abstand-s);
-  vertical-align: middle;
-}
-
-.status-tag.pflicht { background: #fde8e8; color: #9b1a1a; }
-.status-tag.optional { background: var(--grau-200); color: var(--grau-500); }
-
-/* --- SICHTBARKEIT ----------------------------------------- */
-.versteckt {
-  display: none !important;
-}
-
-/* --- TOAST / MELDUNG -------------------------------------- */
+/* ---- TOAST ------------------------------------------------ */
 .toast {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
+  bottom: 20px; right: 20px;
   background: var(--grau-900);
   color: #fff;
-  padding: 10px 20px;
-  border-radius: var(--radius);
-  font-size: 0.88rem;
+  padding: 9px 18px;
+  border-radius: var(--r);
+  font-size: 0.85rem;
   font-weight: 600;
-  box-shadow: var(--schatten-m);
+  box-shadow: var(--shm);
   opacity: 0;
-  transform: translateY(10px);
-  transition: opacity 0.2s, transform 0.2s;
+  transform: translateY(8px);
+  transition: opacity .2s, transform .2s;
   pointer-events: none;
   z-index: 999;
 }
+.toast.sichtbar { opacity: 1; transform: translateY(0); }
 
-.toast.sichtbar {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-/* --- FUSSZEILE -------------------------------------------- */
+/* ---- FOOTER ----------------------------------------------- */
 footer {
   background: var(--grau-200);
   border-top: 1px solid var(--grau-300);
-  padding: var(--abstand-m) var(--abstand-xl);
+  padding: 12px 32px;
   text-align: center;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   color: var(--grau-500);
 }
 
-/* --- RESPONSIVE ------------------------------------------- */
-@media (max-width: 700px) {
-  header {
-    padding: var(--abstand-m);
-  }
+/* ---- HILFSKLASSEN ----------------------------------------- */
+.versteckt { display: none !important; }
+.mt8  { margin-top: 8px; }
+.mt14 { margin-top: 14px; }
 
-  .container {
-    padding: 0 var(--abstand-s);
-    margin-top: var(--abstand-m);
-  }
-
-  .felder-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .ampel-karte {
-    flex-direction: column;
-    gap: var(--abstand-m);
-  }
-
-  .pruefschritt {
-    flex-direction: column;
-    gap: var(--abstand-s);
-  }
-
-  .falltyp-grid {
-    grid-template-columns: 1fr 1fr;
-  }
+/* ---- RESPONSIVE ------------------------------------------- */
+@media (max-width: 640px) {
+  header { padding: 12px 16px; }
+  .container { padding: 0 10px; margin-top: 16px; }
+  .felder-grid { grid-template-columns: 1fr; }
+  .schritte-leiste { font-size: 0.76rem; }
+  .schritt-tab { padding: 10px 4px; }
 }
 
-/* --- FOKUS-SICHTBARKEIT (Accessibility) ------------------- */
-*:focus-visible {
-  outline: 3px solid var(--blau);
-  outline-offset: 2px;
-}
+*:focus-visible { outline: 3px solid var(--blau); outline-offset: 2px; }
 
-/* --- DRUCKSTIL -------------------------------------------- */
 @media print {
-  header, .falltyp-auswahl, .eingabe-bereich, .pruef-bar, footer {
-    display: none !important;
-  }
-
-  .ergebnis-bereich {
-    display: block !important;
-  }
-
-  .pruefvermerk-text {
-    background: #fff;
-    border: 1px solid #ccc;
-  }
+  header, .schritte-leiste, .bg-erfassung, .btn-bar, footer { display: none !important; }
+  .ergebnis-section { display: block !important; }
 }
